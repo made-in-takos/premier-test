@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright ownership.
+    The ASF licenses this file to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the License for the specific language governing permissions and limitations under the License.
+-->
+<html>
+    <head>
+<!--
+Personnalisez cette politique pour qu'elle corresponde aux besoins de votre application. Pour plus d'informations, voir:
+https://github.com/apache/cordova-plugin-whitelist/blob/master/README.md#content-security-policy
+Some notes:
+ * Gap: n'est requis que sur iOS (lors de l'utilisation d'UIWebView) et est nécessaire pour JS-> communication native
+ * Https://ssl.gstatic.com n'est requis que sur Android et est nécessaire pour que TalkBack fonctionne correctement
+ * Désactive l'utilisation des scripts en ligne afin d'atténuer le risque de vulnérabilités XSS. Pour modifier ceci:
+ * Activer JS en ligne: ajoutez 'unsafe-inline' à default-src
+-->
+        <meta charset="UTF-8">
+
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'
+
+      style-src 'self' 'unsafe-inline';
+      media-src *;
+      img-src 'self' data: content:;">
+
+      <!-- cree un bug avec le script highlight -->
+      <!-- data: gap: https://ssl.gstatic.com 'unsafe-eval'; -->
+
+        <meta name="format-detection" content="telephone=no">
+        <meta name="msapplication-tap-highlight" content="no">
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
+
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <script src="highlight.pack.js"></script>
+        <link rel="stylesheet" href="css/blaze.min.css">
+        <link rel="stylesheet" href="css/blaze.animations.min.css">
+        <link rel="stylesheet" href="css/app.css">
+        <link rel="stylesheet" href="css/monokai-sublime.css">
+        <!-- -->
+        <title>Hello World</title>
+    </head>
+    <body>
+        <div class="app">
+            
+            <div class="title">
+                <h1>INTRODUCTION</h1>
+            </div>
+            <p class="sub-content">
+                Sass est une extension de CSS qui ajoute puissance et élégance au language CSS.
+                Comme pour beaucoup de language de programmation, il vous permet d'utiliser
+                des variables ou des règles imbriquées, mais aussi des mixins, des importations, des sélecteurs multiples, etc...
+                Le tout, avec une syntaxe entièrement compatible CSS. <br />
+                SASS vous aidera à garder de grandes feuilles de style bien organisées,
+                en particulier avec l'aide de la bibliothèque de style Compass.
+            </p>
+            <div class="sub-title">Caractéristiques</div>
+            <div class="sub-content">
+                <ul>
+                    <li>Entièrement compatible avec CSS.</li>
+                    <li>Des extensions de langage telles que des variables, des fonctions ou encore des mixins.</li>
+                    <li>De nombreuses fonctions utiles pour manipuler les couleurs et autres valeurs.</li>
+                    <li>Des fonctions avancées comme les directives de contrôle pour les bibliothèques.</li>
+                    <li>Des sorties formatées et personnalisables.</li>
+                </ul>
+            </div>
+            <p class="dash"> </p>
+            <div class="sub-title">Syntaxe</div>
+            <div class="sub-content">
+                <p>
+                    Il existe deux syntaxes disponibles pour Sass. La première,
+                    connue sous le nom SCSS (Sassy CSS) sera utilisée tout au long de cette référence,
+                    c' est une extension de la syntaxe CSS.
+                    <br />
+                    Cela signifie que chaque feuille de style CSS
+                    est un fichier compilé depuis SCSS, ayant la même signification. En outre,
+                    SCSS comprend la plupart des hacks CSS et les syntaxes spécifiques,
+                    comme la syntaxe de filtre d'IE. Cette syntaxe est améliorée avec les
+                    fonctionnalités Sass décrites ci-dessous. Les fichiers utilisant
+                    cette syntaxe ont l'extension .scss.
+                </p>
+                <p>
+                    La deuxième syntaxe est plus ancienne, connue sous le nom de syntaxe indentée (ou parfois seulement "Sass"),
+                    elle fournit une manière plus concise d'écrire du CSS, mais maoins claire au niveau de la lecture du code.
+                    <br />
+                    <br />
+                    SASS utilise l'indentation plutôt que les crochets pour indiquer l'emboîtement des sélecteurs.
+                    De plus, il utilise une nouvelle ligne plutôt que les points-virgules pour séparer les propriétés.
+                    Si certaines personnes trouvent cela plus facile à lire et plus rapide à écrire que le SCSS,
+                    le système d'accolade et de point virgule (qui se retrouvant aussi dans le CSS) délimite mieux visuellement les
+                    différents blocs.
+                    Les fichiers utilisant la syntaxe SASS ont l'extension .sass.
+                </p>
+                <p>
+                    Les fichiers peuvent être automatiquement convertis d'une syntaxe à l'autre
+                    à l'aide de l'outil de ligne de commande <b><i>sass-convert:</i></b>
+                </p>
+            </div>
+	<pre>
+<code class="bash">
+# Convertir Sass en SCSS
+$ sass-convert style.sass style.scss
+
+# Convertir SCSS en Sass
+$ sass-convert style.scss style.sass
+
+</code>
+	</pre>
+            <p class="dash"> </p>
+            <div class="sub-title">Utiliser Sass en lignes de commandes</div>
+            <div class="sub-content">
+                <p>
+                    Sass peut être utilisé de plusieurs façons différentes:
+                    <br />
+                    en tant qu'outil de lignes de commandes,
+                    en tant que module Ruby autonome et en tant que plugin pour n'importe quel framework, y compris Ruby on Rails et Merb.
+                    La première étape pour tout cela est d'installer Sass:
+                </p>
+            </div>
+            <pre><code class="bash">gem install sass</code></pre>
+            <p class="sub-content">Si vous utilisez Windows, vous devrez peut-être installer Ruby en premier
+                <b>(http://bkaprt.com/sass/5/)</b>.
+                Pour savoir si Ruby est déja installé, tapez dans l'invite de commandes.
+            <pre><code class="bash"> ruby --help </code></pre>
+            </p>
+            <p class="sub-content">Pour exécuter Sass depuis la ligne de commande, il suffit d'utiliser </p>
+            <pre><code class="bash">sass input.scss output.css</code></pre>
+            <p class="sub-content">Vous pouvez également indiquer à SASS de regarder le fichier et ainsi mettre à jour le CSS chaque fois que le fichier Sass change: </p>
+            <pre><code class="bash">sass --watch input.scss:output.css</code></pre>
+            <p class="sub-content">Si vous avez un répertoire avec de nombreux fichiers Sass, vous pouvez également dire à Sass de regarder le répertoire entier: </p>
+            <pre><code class="bash">sass --watch app/sass:public/stylesheets</code></pre>
+            <p class="sub-content">Utilisez <b>sass --help </b>pour obtenir toute la documentation. </p>
+            <p class="dash"></p>
+
+            <div class="sub-title">Utiliser Sass avec scout-app</div>
+            <div class="sub-content">
+                <p>
+                    Si les lignes de commandes ne sont pas au centre de vos rêves les plus palpitants,
+                    il existe des applications de bureau qui peuvent faciliter la gestion et la conversion de vos
+                    fichiers SASS/SCSS.
+                    Dans cette référence, nous utiliserons scoot, <b>(http://scout-app.io/)</b> qui est entièrement gratuit et Open source,
+                    mais il en existe d'autres :
+                </p>
+            </div>
+            <div class="sub-content">
+                <ul>
+                    <li>scout (que nous venons de citer) pour linux, windows et mac.</li>
+                    <li>Fire.app <b>(http://fireapp.kkbox.com)</b> pour linux, windows et mac.</li>
+                    <li>Codekit <b>(https://codekitapp.com)</b> uniquement pour mac et payant, bien que peux onéreux.</li>
+                </ul>
+            </div>
+            <div class="sub-title">Configurer scout.</div>
+            <div class="sub-content">
+                <p>
+                    Une fois le téléchargement terminé, et l'installation effectuée,
+                    il vous faudra créer un nouveau projet pour ensuite lui indiquer le chemain d'entrée (SCSS)
+                    et de sortie (CSS) de vos fichiers.
+                </p>
+            </div>
+            <div class="sub-content">
+                <p>
+                    Exemple
+                    <br />
+                    Input folder:
+                </p>
+            </div>
+            <pre><code class="bash">/~/stylesheets/SCSS/</code></pre>
+            <div class="sub-content">
+                <p>
+                    Output folder:
+                </p>
+            </div>
+            <pre><code class="bash">/~/stylesheets/CSS/</code></pre>
+            <div class="sub-content">
+                <p>
+                    Cliquez ensuite sur le bouton lecture de votre projet,
+                    et Scout démarrera le suivit des modifications apportés au fichier SCSS.
+                    <br />
+                    Il ne sera alors plus utile de manipuler le fichier CSS
+                    car sa compilation se fera automatiquement via l'application.
+                </p>
+            </div>
+            <p class="dash"></p>
+        </div>
+        <script>hljs.initHighlightingOnLoad();</script>
+        <script type="text/javascript" src="cordova.js"></script>
+        <script type="text/javascript" src="js/index.js"></script>
+    </body>
+</html>
