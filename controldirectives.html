@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>DIRECTIVES DE CONTRÔLE</h1>
+	</div>
+	<br />
+	<div class="sub-content">
+		<p>
+			Il est à noter que SASS reconnait les boucles <i>$for</i>, <i>$each </i>, <i>$while </i>
+			ainsi que les conditions <i>@if, @else</i> et <i>@else if</i>.
+			<br />
+		</p>
+	</div>
+	<div class="sub-title"><i>La condition @if</i></div>
+	<div class="sub-content">
+		<p>
+			Comme dans tous language de programmation, pour qu'une condition soit remplie, celle-ci doit
+			est égale à <i>TRUE</i>. Dans ce cas ci,
+			si <i>1 + 1 == 2 alors ..., sinon si 5 est inférieur à 3 alors ..., sinon NULL</i>
+			<br />
+			<br />
+			<i>1 + 1 </i>est bien égale à <i>2</i> (ce qui renvoie <i>TRUE</i>), alors que <i>5</i>
+			n'est pas inférieur à <i>3</i> (ce qui renvoie <i>FALSE</i>) et <i>NULL</i> renvoie <i>FALSE</i>.
+			<br />
+			Nous voyons que seul la première condition est égale à <i>TRUE</i>, ce sera donc une bordure de <i>1px solid</i>
+			<br />
+		</p>
+	</div>
+	<pre><code class="scss">
+p {
+ @if 1 + 1 == 2 { border: 1px solid;  }
+ @else if 5 < 3      { border: 2px dotted; }
+ @else null       { border: 3px double; }
+}
+	</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+p {
+ border: 1px solid;
+}
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title"><i>Les boucles</i></div>
+	<div class="sub-content">
+		<p>
+			Il est aussi interessant de pouvoir créer différents types de boucles, de manière à automatiser des tâches.
+		</p>
+	</div>
+	<div class="sub-title"><i>@for</i></div>
+	<div class="sub-content">
+		<p>
+			La boucle <i>@for</i> permet l'incrémentation d'une variable, (dans ce cas ci <i>$i</i>)
+			jusqu' à un nombre donné <i>(1200px)</i>.
+			<br />
+			Où, <i>3 </i>est le nombre de colonnes et <i>1200px</i>, la taille de l'écran, par exemple.
+			<br />
+			<br />
+			ce qui est calculé comme suit :
+			<br />
+			1200 / 3 = 400.
+			<br />
+			<br />
+			Nous avons donc trois colonnes d'une l'argeur de 400px chacune.
+		</p>
+	</div>
+	<pre><code class="scss">
+$nbrCol : 3 ;
+$largCol : 1200px / $nbrCol ;
+
+@for $i from 1 to ( $nbrCol + 1 ) {
+ .col-#{$i} {
+   width: ($largCol * $i) ;
+  }
+}
+	</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+.col-1 {
+  width: 400px;
+}
+.col-2 {
+  width: 400px;
+}
+.col-3 {
+  width: 400px;
+}
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title"><i>@each</i></div>
+	<div class="sub-content">
+		<p>
+			Cette boucle permet de parcourir, à l'aide d'une boucle, tous les éléments d'un tableau (ici <i>$header</i>).
+				<br />
+			Cette boucle peut saverer très pratique dans le cas d'une gallerie d'images par exemple,
+			en effet, celle-ci permet d'automatiser le chargement sans devoir chager les images une à une.
+			des images.
+		</p>
+	</div>
+	<pre><code class="scss">
+@each $images in 01, 02, 03, 04 {
+  .#{$images}-thumb {
+    background-image: url('../images/#{$images}.png');
+  }
+}
+	</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+.01-thumb {
+  background-image: url('../images/01.png');
+}
+.02-thumb {
+  background-image: url('../images/02.png');
+}
+.03-thumb {
+  background-image: url('../images/03.png');
+}
+.04-thumb {
+  background-image: url('../images/04.png');
+}
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title"><i>@while</i></div>
+	<div class="sub-content">
+		<p>
+			Avec la boucle while, tant qu'il reste des valeurs,
+			la condition est remplie <i>( == TRUE )</i>, et donc, la tâche se poursuit.
+			<br />
+			<br />
+			Dans ce cas ci, <i>tant que 6 n'est pas inférieur à 0 alors $i - 2</i>
+			<br />
+		</p>
+	</div>
+	<pre><code class="scss">
+$i: 6;
+@while $i > 0 {
+ .item-#{$i} {
+   width: 2em * $i;
+ }
+$i: $i - 2;
+}
+	</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+.item-6 {
+  width: 12em;
+}
+
+.item-4 {
+  width: 8em;
+}
+
+.item-2 {
+  width: 4em;
+}
+	</code></pre>
+	<p class="dash"> </p>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

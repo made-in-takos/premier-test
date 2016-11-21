@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>SELECTEURS</h1>
+	</div>
+	<br>
+	<div class="sub-title">Selecteurs CSS vs SCSS</div>
+	<pre><code class="scss">
+#main {
+  color: #999;
+}
+#main .content {
+  color: #bfbfbf;
+}</code></pre>
+	<div class="sub-content">
+		<p>
+			L'extrait CSS ci-dessus peut être écrit dans SCSS comme suit:
+		</p>
+	</div>
+	<pre><code class="scss">
+#main{
+  color: #999;
+  .content{
+    color: #bfbfbf;
+  }
+}</code></pre>
+	<div class="sub-content">
+		<p>As we can see SCSS strucuture is more like actual DOM structure.This allows us to organise our CSS more effectively</p>
+	</div>
+	<div class="sub-content">
+		<p>Examples:</p>
+	</div>
+	<pre><code class="scss">
+#main h1 {
+  color: #00ff00;
+  width: 97%;
+  .title {
+    background-color: #ff0000;
+    color: #000000;
+  }
+}
+	</code></pre>
+	<div class="sub-content"><p>Will be compiled to :</p></div>
+	<pre><code class="scss">
+#main h1 {
+  color: #00ff00;
+  width: 97%;
+}
+#main h1 .title{
+  background-color: #ff0000;
+  color: #000000;
+}
+	</code></pre>
+	<div class="sub-content">Referencing parent selector:</div>
+	<pre><code class="scss">
+#wrapper h1{
+  width:20px;
+  &amp;:hover{
+    width:25px;
+  }
+}
+	</code></pre>
+	<div class="sub-content"><p>&amp; Will be replaced with parent selector.The above code is equivalent to</p></div>
+	<pre><code class="scss">
+#wrapper h1{
+  width:20px;
+}
+#wrapper h1:hover{
+  width:25px;
+}
+	</code></pre>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

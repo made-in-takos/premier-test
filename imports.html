@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>@IMPORT</h1>
+	</div>
+	<br>
+	<div class="sub-title">importation normal</div>
+	<div class="sub-content">
+		<p>
+			CSS a une option d'importation qui vous permet de diviser votre CSS en
+			parties plus petites et donc plus maintenables.
+			Le seul inconvénient est que chaque fois que vous utilisez @import en CSS,
+			il crée une autre requête HTTP.
+			<br />
+			<br />
+			Sass s'appuie sur le CSS @import utilisé actuellement,
+			mais au lieu d'envoyer une requête HTTP, Sass prendra le fichier que
+			vous voulez importer et le combine avec le fichier que vous importez afin
+			de pouvoir servir un seul fichier CSS sur le Web navigateur.
+		</p>
+	</div>
+	<pre><code class="scss">
+//importe foo.css
+ @import "foo.css";
+//importe foo.scss
+ @import "foo" screen;
+//importe foo.scss
+ @import "foo.scss" screen;
+//importe foo1.scss et foo2 scss
+ @import "foo1","foo2" screen;
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title">Importation partielle</div>
+	<div class="sub-content">
+		<p>
+			Si nous ne voulons pas convertire une feuille de style entière en SASS,
+			nous pouvons créer des fichiers SASS partiels qui contiennent de petits extraits
+			de CSS que vous pouvez inclure dans d'autres fichiers SASS.
+			C'est une excellente façon de modulariser notre CSS et de nous aider à garder
+			les choses plus faciles à entretenir par la suite.
+			<br />
+			Un partiel est simplement un fichier SASS nommé avec un <i>Underscore</i>
+			avant le nom du fichier.
+			Nous pouvons nommer <b><i>_partial.scss.</i></b> par exemple
+			Le trait de soulignement permet à Sass de savoir que le fichier n'est qu'un
+			fichier partiel et qu'il ne doit pas être généré dans un fichier CSS.
+			Les partiels Sass sont utilisés avec la directive <b><i>@import</i></b>.
+			</p>
+	</div>
+	<pre><code class="scss">
+//_colors.scss est importée
+ @import "colors";
+// Cela va importer foo.scss dans le
+// dossier utilitaires (chemin relatif)
+ @import "utils/foo.scss";
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title">Importations imbriquées</div>
+	<div class="sub-content">
+		<p>Si <b><i>demo.scss</i></b> contient:</p>
+	</div>
+	<pre><code class="scss">
+.example {
+  color: red;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>puis</p>
+	</div>
+	<pre><code class="scss">
+#main {
+  @import "demo";
+}
+</code></pre>
+		<div class="sub-content">
+		<p>Ce qui sera compilé en:</p>
+	</div>
+	<pre><code class="scss">
+#main .example {
+  color: red;
+}
+	</code></pre>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

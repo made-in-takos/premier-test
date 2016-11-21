@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>@EXTEND</h1>
+	</div>
+	<br>
+	<!-- <div class="sub-title">@extend</div> -->
+	<div class="sub-content">
+		L'utilisation de <i><b>@extend</b></i> nous permet de partager un ensemble de propriétés CSS d'un sélecteur à un autre.
+		<br />
+		<br />
+		Plutôt que d'encombrer notre code HTML de classes supplémentaires pour gérer de petites exeptions, nous pouvons utiliser
+		la fonction <i><b>@extend</b></i> de SASS pour "enchaîner" les styles partagés par plusieurs sélecteurs.
+		<br />
+		Il nous est alors possible d'ajouter des règles supplémentaires pour créer un style unique, sans avoir à dupliquer les
+		les styles partagés.
+		<br />
+		<br />
+		Ainsi, si nous voulons utiliser <i><b>@extend</b></i> pour gérer différents types de bouttons,
+		nous pouvons simplifier le code HTML en n'incluant qu'une seule classe.
+	</div>
+	<pre><code class="html">
+&lt;button class=&quot;btn&quot;&gt;Normal&lt;/button&gt;
+&lt;button class=&quot;btn-blue&quot;&gt;Blue&lt;/button&gt;
+	</code></pre>
+	<div class="sub-content">Les deux boutons auront les mêmes styles, sauf la couleur du background.</div>
+	<pre><code class="scss">
+.btn{
+  margin:10px;
+  color:black;
+  width:200px;
+  height:100px;
+}
+.btn-blue{
+  @extend .btn;
+  background:blue;
+}
+	</code></pre>
+	<div class="sub-content">Ce qui sera compilé en:</div>
+	<pre><code class="scss">
+.btn,.btn-blue{
+  margin:10px;
+  color:black;
+  width:200px;
+  height:100px;
+}
+.btn-blue{
+  background:blue;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>
+			Nous pouvons également inclure et utiliser plusieurs classes dans une déclaration à l'aide de dette fonction.
+		</p>
+	</div>
+	<pre><code class="scss">
+.btn{
+  margin: 10px;
+  color: black;
+  width: 200px;
+  height: 100px;
+}
+.font-color{
+  color: white;
+}
+.btn-blue{
+  @extend .btn;
+  @extend .font-color;
+  background: blue;
+}
+</code></pre>
+<div class="sub-content">Ce qui sera compilé en:</div>
+<pre><code class="scss">
+.btn,.btn-blue{
+  margin: 10px;
+  color: black;
+  width: 200px;
+  height: 100px;
+}
+.btn-blue{
+  color: white;
+  background: blue;
+}
+</code></pre>
+<div class="sub-title">Le placeholder %</div>
+	<div class="sub-content">
+		<p>
+		Les <i>placeholders</i> nous permettent de déffinir des classes "fantomes" qui
+		n'apparaîtront pas dans le CSS final en tant que telles.
+		<br />
+		<br />
+		Pour préciser qu'il sagit d'un <i>placeholder</i>, nous allons préfixer le nom
+		de la class par le symbole <b>%</b> au lieu du point.
+		<br />
+		<br />
+		Nous pourrons ensuite appeler ces règles dans d'autres classes comme nous l'avons
+		fait précédemment, à l'aide de la fonction <i><b>@extend</b></i>.
+	</p>
+	</div>
+	<pre><code class="scss">
+%btn{
+  margin:10px;
+  color:black;
+  width:200px;
+  height:100px;
+}
+.btn-blue{
+  @extend %btn;
+  background:blue;
+}
+.btn-red{
+  @extend %btn;
+  background:red;
+}
+</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+.btn-blue{
+  margin:10px;
+  color:black;
+  width:200px;
+  height:100px;
+  background:blue;
+}
+.btn-red{
+  margin:10px;
+  color:black;
+  width:200px;
+  height:100px;
+  background:red;
+}
+	</code></pre>
+	<p class="dash"></p>
+	<div class="sub-title">@extend VS @mixins</div>
+	<div class="sub-content">
+		<p>
+			Alors qu'un <b><i>@mixin</i></b> recopiera la règles dans chaque déclaration,
+			<b><i>@extent </i></b> créera des selecteurs multiples séparés par les virgules
+			pour les styles partagés.
+			<br />
+
+		</p>
+	</div>
+	<p class="dash"></p>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>FUNCTIONS</h1>
+	</div>
+	<br>
+	<div class="sub-content">
+		Vous pouvez également définir des fonctions qui renverons une valeur.
+		<br />
+		<br />
+		une fonction comporte une séquence d'instructions réalisant un calcul ou une tâche.
+		celles-ci sont très similaire aux un mixins,
+		mais la sortie d'une fonction est une valeur <b>unique</b>.
+		Cela peut être n'importe quel type de données SCSS, y compris:
+		<br />
+		<ul>
+		<li> Des nombres </li>
+		<li> Des chaînes </li>
+		<li> Des couleurs </li>
+		<li> Des booléens </li>
+		<li> Des listes </li>
+		</ul>
+		Par exemple:</div>
+	<pre><code class="scss">
+$no-of-columns:12;
+$gutter-width:2%;
+
+@function get-column-width($i){
+  @return (100%
+	- ($no-of-columns/$i - 1)
+	* $gutter-width)
+	/ $no-of-columns * $i;
+}
+
+.col-6{
+  width:get-column-width(6);
+}
+	</code></pre>
+	<div class="sub-content">Ce qui sera compilé en:</div>
+	<pre><code class="scss">
+.col-6 {
+  width: 49%;
+}
+</code></pre>
+<div class="sub-content">
+	une Fonction à donc pour avantage de définir un ensemble de propriétés au seins
+	d'un même bloc et de pouvoir le réutiliser en l'appelant dans une déclaration.
+	<br />
+	</div>
+	<p class="dash"> </p>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

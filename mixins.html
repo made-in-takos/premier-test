@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>MIXINS</h1>
+	</div>
+	<br>
+	<div class="sub-content">
+		<p>
+			Là où, les variable ($nom_var) vous permettent de définir et de réutiliser des valeurs à travers la
+			feuille de style, les mixins vous permettent de définir et de réutiliser des blocs de style entiers.
+
+			<br />
+			En quelques sorte, les mixins sont comparable à des fonctions présent dans les autres langage de programmation.
+		</p>
+		<p>
+			Dans cette exemple, nous créons le mixin <i><b>large-text</b></i>
+			que nous utiliserons par la suite en l'appelant comme suit : <i><b>@include large-text.</b></i>
+			<br />
+			<br />
+			Ainsi, plutot que de redonner à chaque fois en argument la famille de la font, sa taille et son épaisseuret sa couleur,
+			il nous suffit d'indiquer <i><b>@include marge-text;</b></i> dans la balise souhaitée,
+			pour lui affecter les propriétés que le	mixin contient.
+			<br />
+		</p>
+	</div>
+	<pre><code class="scss">
+@mixin large-text {
+  font: {
+    family: Arial;
+    size: 20px;
+    weight: bold;
+  }
+  color: #ff0000;
+}
+
+.page-title {
+  @include large-text;
+  padding: 4px;
+  margin-top: 10px;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>Ce qui sera compilé en:</p>
+	</div>
+	<pre><code class="scss">
+.page-title {
+  font-family: Arial;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ff0000;
+  padding: 4px;
+  margin-top: 10px;
+}
+</code></pre>
+	<div class="sub-content">
+		<p>Nous pouvons aussi utiliser des mixins composés, et ainsi additioner plusieurs blocs.</p>
+	</div>
+	<pre><code class="scss">
+@mixin mixin-one{
+  color: red;
+}
+
+@mixin mixin-two{
+  width:20px;
+}
+
+.page-title {
+  @include mixin-one;
+  @include mixin-two;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>Nous pouvons également passer des variables au mixins.</p>
+	</div>
+	<pre><code class="scss">
+$globel-prefixes:webkit moz ms o;
+
+@mixin prefixer ($property,$value,$prefixes:null){
+  @if $prefixes==null{
+    @each $prefix in $globel-prefixes {
+      -#{$prefix}-#{$property}: $value;
+    }
+  } @else {
+    @each $prefix in $prefixes {
+        -#{$prefix}-#{$property}: $value;
+      }
+  }
+  #{$property}: $value;
+}
+*{
+  @include prefixer(box-sizing,border-box);
+}
+</code></pre>
+	<div class="sub-content">
+		<p>Ce qui sera compilé en:</p>
+	</div>
+	<pre><code class="scss">
+*{
+  -webkit-box-sizing:border-box;
+  -moz-box-sizing:border-box;
+  -ms-box-sizing:border-box;
+  -o-box-sizing:border-box;
+  box-sizing:border-box;
+}
+	</code></pre>
+
+
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>

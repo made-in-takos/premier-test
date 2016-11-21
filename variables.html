@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<script src="js/highlight.pack.js"></script>
+	<link rel="stylesheet" href="css/blaze.min.css">
+	<link rel="stylesheet" href="css/blaze.animations.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/monokai-sublime.css">
+</head>
+<body>
+	<div class="title">
+		<h1>VARIABLES</h1>
+	</div>
+	<br>
+	<div class="sub-content">
+		<p>
+			Les variables SCSS, comme dans d'autres languages de programmation,
+			sont des éléments auquels on donne un nom et une valeur qui, comme son
+			nom l'indique, varie.
+			Celles-ci peuvent etre des valeurs numériques ou exadécimales, des liens,
+			des fonts, etc...
+			<br />
+			<br />
+			En SCSS, on definie une variable avec le symbole <b>$</b>.
+				<br />
+			une fois définies,
+			elles peuvent être invoquées dans des déclarations.
+		</p>
+	</div>
+	<pre><code class="scss">
+$width: 10px;
+$headercolor:red;
+
+#main h1{
+  width: $width;
+  color:$headercolor;
+}
+</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+#main h1{
+  width: 10px;
+  color:red;
+}
+</code></pre>
+	<div class="sub-content">
+		<p>
+			Grace à ces variables, il est beaucoup plus rapide et faciles de modifier
+			des couleurs ou des tailles, puisque une seule modification apportée à une
+			variable, sufit à modifier les valeurs dont le nom est répétés dans la
+			feuille de style.
+			<br />
+			<br />
+			Cependant, les variables ne sont disponibles que dans le niveau des sélections imbriquées où elles sont définies.
+			Si vous avez besoin de cette variable en dehors de cette portée, vous devez ajouter <b>!global</b>.
+		</p>
+	</div>
+	<pre><code class="scss">
+#main {
+  $width: 5em !global;
+  width: $width;
+}
+#sidebar {
+  width: $width;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>
+			Vous pouvez spécifier des variables dans le fichier sperate et vous pouvez importer ce fichier scss
+			Pour utiliser ces variables. Il agit comme fichier de configuration pour votre projet.
+			Si vous changez la valeur de la variable, elle sera modifiée partout où elle est utilisée.
+			Il est très efficace dans les grands projets. Nous le verrons plus tard.
+		</p>
+	<p>
+		Vous pouvez également effectuer des opérations dans SCSS.
+		<br />
+		<br />
+		Par exemple:
+	</p>
+</div>
+	<pre><code class="scss">
+p {
+//CSS simple, pas de division
+  font: 10px/8px;
+  $width: 1000px;
+//Utilise une variable, la division
+  width: $width/2;
+//Utilise une fonction, la division
+  width: round(1.5)/2;
+//Utilise les parenthèses, la division
+  height: (500px/2);
+//Utilise +, la division
+  margin-left: 5px + 8px/2px;
+//Dans une liste, les parenthèses ne comptent pas
+  font: (italic bold 10px/8px);
+}
+	</code></pre>
+	<div class="sub-content"><p>Ce qui sera compilé en:</p></div>
+	<pre><code class="scss">
+p {
+  font: 10px/8px;
+  width: 500px;
+  height: 250px;
+  margin-left: 9px;
+}
+	</code></pre>
+	<p class="dash"> </p>
+	<div class="sub-title">Interpolation: #{}</div>
+	<div class="sub-content">
+	<p>
+Vous pouvez utiliser des variables dans les noms de propriétés ainsi que les valeurs, en utilisant # {}.
+</p>
+</div>
+	<pre><code class="scss">
+$name: foo;
+$attr: border;
+p.#{$name} {
+  #{$attr}-color: blue;
+}
+	</code></pre>
+	<div class="sub-content">
+		<p>Ce qui sera compilé en:</p>
+	</div>
+	<pre><code class="scss">
+p.foo {
+  border-color: blue;
+}</code></pre>
+<p class="dash"> </p>
+	<script>hljs.initHighlightingOnLoad();</script>
+</body>
+</html>
