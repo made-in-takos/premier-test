@@ -1,0 +1,61 @@
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: bold;
+  font-weight: 400;
+  src: local('Roboto Mono'), local('RobotoMono-Regular'), url('fonts/RobotoMono-Regular.ttf') format('ttf');
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Roboto Mono'), local('RobotoMono-Regular'), url('fonts/RobotoMono-Light.ttf') format('ttf');
+}
+
+*{
+	font-family: 'Roboto Mono', monospace;
+}
+
+body{
+
+}
+
+.title h1{
+	text-align: center;
+	color: white;
+	padding: 20px;
+	background: rgba(255, 91 , 91, 1);
+	margin: 0px;
+}
+
+.content{
+	background: white;
+}
+
+.sub-title{
+	font-size: 20px;
+	padding:0 26px 0 26px;
+	margin-left: 1em;
+	font-weight: bold;
+	border:0 solid rgba(255, 91, 91, 1);
+	padding: 10px;
+	border-width:0 0 0 5px;
+}
+
+.sub-content {
+  padding:0 26px 0 26px;
+  color: #444648;
+  line-height: 1.6em;
+}
+
+.dash {
+  border-color: #BABCBD;
+  margin: 20px 0 20px 0;
+  border-width: 0 0 1px 0;
+  border-style: dashed; }
+
+
+pre{
+	overflow: auto;
+}
