@@ -1,0 +1,6 @@
+# Pinning volontairement large : les wheels aarch64 (Pi 5 64-bit) existent
+# pour OpenCV 4.x. MediaPipe 1.0+ fournit un wheel py3-none aarch64,
+# compatible Python 3.13, contrairement aux 0.10.x (cp39-cp312 seulement).
+numpy>=1.26,<3
+opencv-contrib-python>=4.10,<5
+mediapipe>=1.0.1
