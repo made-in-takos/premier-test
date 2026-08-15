@@ -9,5 +9,6 @@ dist/
 build/
 *.jpg
 *.png
+!references/**/*.jpg
 !tests/fixtures/**
 .DS_Store

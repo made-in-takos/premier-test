@@ -1,110 +1,80 @@
 # Reconnaissance de cartes — OpenCV sur Raspberry Pi 5
 
-Ce dépôt installe **OpenCV** sur un Raspberry Pi 5 **64-bit** sans compiler Python à la main, puis détecte des cartes à jouer par contours.
+Le cœur du projet est le pipeline **contour → carte à plat → coin → références**, inspiré du tutoriel EdjeElectronics. MediaPipe n’est pas utilisé.
 
-MediaPipe n’est **pas nécessaire** pour reconnaître des cartes. Il sert surtout aux mains, au visage et à la pose.
+## Est-ce une bonne base ?
 
-## Pourquoi ça bloquait
+Oui. C’est l’approche classique et adaptée à un Pi 5 :
 
-Deux problèmes distincts, souvent mélangés :
+1. Seuillage pour isoler la carte (fond sombre)
+2. Plus grand quadrilatère
+3. `warpPerspective` vers 200×300
+4. Zoom du coin haut-gauche (rang + couleur)
+5. `absdiff` contre une photo de *ton* jeu
 
-1. **Python 3.13** (Raspberry Pi OS Trixie) : les anciennes versions de MediaPipe (`0.10.x`) n’ont des wheels que pour Python 3.9 à 3.12. `pip` refuse donc d’installer le module. OpenCV, lui, a des wheels 3.13.
-2. **Python 3.11.16 compilé depuis les sources** : si `libssl-dev` n’était pas installé *avant* `./configure`, le module `_ssl` n’est pas construit. `pip` ne peut plus parler en HTTPS, donc OpenCV ne s’installe pas. Pointer `--with-openssl=/usr/bin/openssl` ne marche pas : c’est le binaire, pas le préfixe des headers.
+Ce n’est pas encore un classifieur neuronal : il faut **17 photos de référence** du même paquet, sous le même éclairage.
 
-La solution : **utiliser le Python du système** (3.11 sur Bookworm, 3.13 sur Trixie) dans un venv, et n’installer MediaPipe que dans sa version **1.0+** (wheel `py3-none` aussi pour `aarch64`).
+Points déjà corrigés par rapport au brouillon :
 
-## Prérequis
+- `cv2.resize(roi, (w, h), 0, 0)` plantait (le 3e argument n’est pas `fx`)
+- les références sont redimensionnées au chargement
+- si la carte est à l’envers, on teste aussi la rotation 180°
+- si le quadrilatère est en paysage, on tourne l’ordre des coins pour rester en portrait
+- un score trop mauvais devient `Unknown` au lieu d’un faux nom
 
-- Raspberry Pi 5 avec **Raspberry Pi OS 64-bit** (Bookworm ou Trixie)
-- Caméra CSI (Picamera2) ou webcam USB
-- Connexion Internet pour `apt` / `pip`
+À caler ensuite sur le tapis réel : `BKG_THRESH`, découpe du coin, et le fond (tapis sombre, une carte à la fois, coin lisible).
 
-Vérifie l’architecture :
-
-```bash
-uname -m
-```
-
-Il faut `aarch64`. Un OS 32-bit (`armv7l`) n’a pas de wheels OpenCV / MediaPipe fiables.
-
-## Installation (recommandée)
+## Installation OpenCV (Pi 5 64-bit)
 
 ```bash
-chmod +x scripts/install-opencv-rpi5.sh
+uname -m    # doit afficher aarch64
 bash scripts/install-opencv-rpi5.sh
 source .venv/bin/activate
 python python/verify_install.py
 ```
 
-Le script :
+Détail SSL / Python 3.13 : voir plus bas. En résumé, **ne compile pas Python à la main** ; utilise le Python système.
 
-- installe `libssl-dev` et les paquets système (`python3-opencv`, `python3-picamera2`, …)
-- crée `.venv` avec `--system-site-packages` (la caméra CSI reste utilisable)
-- installe OpenCV via un **wheel** précompilé (pas de compilation de 2 h sur le Pi)
-- tente MediaPipe **>= 1.0.1** (compatible 3.13). Échec non bloquant.
+## Capturer les références
 
-Sans MediaPipe :
+Même jeu, lumière stable, fond sombre :
 
 ```bash
-INSTALL_MEDIAPIPE=0 bash scripts/install-opencv-rpi5.sh
+python python/capture_references.py --rank Ace
+python python/capture_references.py --suit Hearts
 ```
 
-## Si tu as déjà compilé Python 3.11 sans SSL
+Espace enregistre, `q` quitte. Fichiers attendus : `references/ranks/*.jpg` et `references/suits/*.jpg` (noms anglais : `Ace`, `10`, `King`, `Spades`, …).
 
-N’essaie pas `pip install` avec cet interpréteur : HTTPS est mort.
-
-Option A — rester sur le Python système (le plus simple) :
+## Reconnaître une carte
 
 ```bash
-PYTHON_BIN=python3 bash scripts/install-opencv-rpi5.sh
-```
-
-Option B — reconstruire 3.11 **avec** SSL, puis relancer l’installeur :
-
-```bash
-chmod +x scripts/rebuild-python311-ssl.sh
-bash scripts/rebuild-python311-ssl.sh
-PYTHON_BIN=/usr/local/bin/python3.11 bash scripts/install-opencv-rpi5.sh
-```
-
-Le rebuild installe d’abord `libssl-dev`, fait `make distclean`, puis `./configure` **sans** `--with-openssl=/usr/bin/openssl`. `make altinstall` n’écrase pas `python3` du système.
-
-## Lancer la détection
-
-```bash
-source .venv/bin/activate
 python python/detect_cards.py --camera 0
+python python/detect_cards.py --camera 0 --debug
+python python/detect_cards.py --image photo.jpg --save resultat.jpg --no-window
 ```
 
-Sans écran / en SSH :
+Picamera2 (CSI) est essayé en premier, sinon webcam USB.
+
+## Tests sans caméra
 
 ```bash
-python python/detect_cards.py --synthetic --no-window --save /tmp/carte.jpg
-```
-
-Sur une photo :
-
-```bash
-python python/detect_cards.py --image photo.jpg --save resultat.jpg
-```
-
-`q` ou `Échap` quitte la fenêtre.
-
-## Tests (sans caméra)
-
-```bash
-source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m pytest tests
 ```
 
-## Fichiers utiles
+## Pourquoi OpenCV ne s’installait pas
+
+1. **Python 3.13** (Trixie) : MediaPipe `0.10.x` n’a pas de wheel. Inutile ici. OpenCV a des wheels 3.13. MediaPipe `1.0+` est optionnel.
+2. **Python 3.11 compilé sans `libssl-dev`** : plus de module `ssl`, donc plus de `pip` HTTPS. Relancer `scripts/install-opencv-rpi5.sh` avec le Python système, ou `scripts/rebuild-python311-ssl.sh` seulement si tu tiens à un 3.11 custom.
+
+## Fichiers
 
 | Fichier | Rôle |
 | --- | --- |
-| `scripts/install-opencv-rpi5.sh` | Installation OpenCV / MediaPipe |
-| `scripts/rebuild-python311-ssl.sh` | Reconstruction Python 3.11 avec SSL |
-| `python/verify_install.py` | Contrôle ssl, OpenCV, MediaPipe |
-| `python/card_geometry.py` | Contours aux proportions d’une carte |
-| `python/detect_cards.py` | Aperçu caméra / image |
-| `requirements.txt` | Dépendances Python |
+| `python/identify.py` | Pipeline rang/couleur |
+| `python/detect_cards.py` | Boucle caméra |
+| `python/capture_references.py` | Photos de référence |
+| `python/camera.py` | Picamera2 / USB |
+| `scripts/install-opencv-rpi5.sh` | Installation OpenCV |
+| `references/` | Templates du jeu |

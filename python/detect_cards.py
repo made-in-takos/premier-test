@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apercu camera: encadre les cartes detectees. MediaPipe n'est pas requis."""
+"""Apercu camera : detecte et nomme la carte (OpenCV, sans MediaPipe)."""
 
 from __future__ import annotations
 
@@ -11,66 +11,68 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from card_geometry import draw_candidates, find_card_candidates, synthetic_card_frame
-
-
-def open_camera(index: int):
-    try:
-        from picamera2 import Picamera2  # type: ignore
-
-        cam = Picamera2()
-        cam.configure(cam.create_preview_configuration(main={"format": "RGB888", "size": (1280, 720)}))
-        cam.start()
-        return ("picamera2", cam)
-    except Exception:
-        import cv2
-
-        cap = cv2.VideoCapture(index)
-        if not cap.isOpened():
-            return None
-        return ("opencv", cap)
-
-
-def read_frame(backend: str, cam):
-    import cv2
-
-    if backend == "picamera2":
-        rgb = cam.capture_array()
-        return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    ok, frame = cam.read()
-    return frame if ok else None
-
-
-def close_camera(backend: str, cam) -> None:
-    if backend == "picamera2":
-        cam.stop()
-        return
-    cam.release()
+from camera import close_camera, open_camera, read_frame
+from card_geometry import synthetic_card_frame
+from identify import identify_card, load_references
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Detection de cartes a jouer (OpenCV)")
-    parser.add_argument("--camera", type=int, default=0, help="Index OpenCV si Picamera2 est absent")
-    parser.add_argument("--image", type=str, default="", help="Chemin d'une image au lieu de la camera")
-    parser.add_argument("--synthetic", action="store_true", help="Utilise une carte synthetique (sans camera)")
-    parser.add_argument("--no-window", action="store_true", help="Pas d'affichage, utile en SSH")
-    parser.add_argument("--save", type=str, default="", help="Enregistre le resultat")
+    parser = argparse.ArgumentParser(description="Reconnaissance de cartes a jouer (OpenCV)")
+    parser.add_argument("--camera", type=int, default=0)
+    parser.add_argument("--image", type=str, default="")
+    parser.add_argument("--synthetic", action="store_true")
+    parser.add_argument("--no-window", action="store_true")
+    parser.add_argument("--save", type=str, default="")
+    parser.add_argument("--debug", action="store_true", help="Affiche la carte aplatie et le coin")
     return parser.parse_args()
+
+
+def annotate(frame, result) -> object:
+    import cv2
+
+    output = frame.copy()
+    if result is None:
+        cv2.putText(output, "Aucune carte", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+        return output
+    contour = result["contour"].astype(int)
+    cv2.drawContours(output, [contour], -1, (0, 255, 0), 2)
+    label = f"{result['rank']} de {result['suit']}  ({result['rank_score']:.0f}/{result['suit_score']:.0f})"
+    color = (0, 255, 0) if result["rank"] != "Unknown" and result["suit"] != "Unknown" else (0, 255, 255)
+    x, y = int(contour[:, 0].min()), int(contour[:, 1].min())
+    cv2.putText(output, label, (x, max(30, y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    return output
+
+
+def show_debug(result) -> None:
+    import cv2
+
+    if result is None:
+        return
+    cv2.imshow("carte a plat", result["warped_card"])
+    if result["rank_img"] is not None:
+        cv2.imshow("rang", result["rank_img"])
+    if result["suit_img"] is not None:
+        cv2.imshow("couleur", result["suit_img"])
 
 
 def main() -> int:
     args = parse_args()
     import cv2
 
+    rank_refs, suit_refs = load_references()
+    if not rank_refs or not suit_refs:
+        print("Aucune reference dans references/ranks et references/suits.")
+        print("Capture-les avec: python python/capture_references.py --rank Ace")
+        print("La detection de contour fonctionne deja; le nommage attend les photos.")
+
+    backend, cam = None, None
     if args.synthetic:
         frame = synthetic_card_frame()
-        backend, cam = None, None
     elif args.image:
         frame = cv2.imread(args.image)
         if frame is None:
             print(f"Impossible de lire {args.image}", file=sys.stderr)
             return 1
-        backend, cam = None, None
     else:
         opened = open_camera(args.camera)
         if opened is None:
@@ -85,9 +87,15 @@ def main() -> int:
 
     try:
         while True:
-            candidates = find_card_candidates(frame)
-            output = draw_candidates(frame, candidates)
-            print(f"{len(candidates)} carte(s) detectee(s)")
+            result = identify_card(frame, rank_refs, suit_refs)
+            output = annotate(frame, result)
+            if result:
+                print(
+                    f"Carte: {result['rank']} de {result['suit']} "
+                    f"(scores {result['rank_score']:.0f}, {result['suit_score']:.0f})"
+                )
+            else:
+                print("Aucune carte")
             if args.save:
                 cv2.imwrite(args.save, output)
                 print(f"Sauve: {args.save}")
@@ -95,6 +103,8 @@ def main() -> int:
                 break
             try:
                 cv2.imshow("cartes", output)
+                if args.debug:
+                    show_debug(result)
                 key = cv2.waitKey(1) & 0xFF
             except cv2.error as exc:
                 print(f"Affichage OpenCV indisponible ({exc}). Utilise --no-window.", file=sys.stderr)
