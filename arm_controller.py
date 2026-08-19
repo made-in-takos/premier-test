@@ -1,52 +1,75 @@
 """
-Contrôle du bras rotatif (moteur pas-à-pas + capteur zéro).
-Fonctionne sur Raspberry Pi avec gpiozero, ou en mode simulation sur PC.
+Contrôle du bras rotatif : 28BYJ-48 + shield ULN2003 (4 fils).
+
+Séquence FULL4WIRE identique à AccelStepper (sketch Arduino) :
+2048 pas / tour, soit ≈ 5,689 pas par degré.
+
+Fonctionne sur Raspberry Pi avec gpiozero, ou en simulation sur PC.
 """
 
 import time
 
 import config
 
+# 2 phases actives à la fois — AccelStepper::step4 / FULL4WIRE
+# Ordre des bits : IN1, IN2, IN3, IN4 sur le ULN2003
+FULL4WIRE_SEQUENCE = (
+    (1, 1, 0, 0),
+    (0, 1, 1, 0),
+    (0, 0, 1, 1),
+    (1, 0, 0, 1),
+)
+
 
 class ArmController:
     def __init__(self):
         self._current_angle = 0.0
-        self._gpio = None
-        self._step = self._dir = self._enable = self._home = None
+        self._gpio = False
+        self._coils = []
+        self._home = None
+        self._phase = 0
+        self._dir_step = 1
 
         if config.IS_RASPBERRY:
             from gpiozero import DigitalOutputDevice, Button
 
-            self._step = DigitalOutputDevice(config.GPIO_STEP, initial_value=False)
-            self._dir = DigitalOutputDevice(config.GPIO_DIR, initial_value=False)
-            self._enable = DigitalOutputDevice(config.GPIO_ENABLE, active_high=False, initial_value=False)
+            self._coils = [
+                DigitalOutputDevice(pin, initial_value=False)
+                for pin in config.GPIO_STEPPER_PINS
+            ]
             self._home = Button(config.GPIO_HOME_SWITCH, pull_up=True, bounce_time=0.05)
             self._gpio = True
         else:
-            print("[SIMULATION] Bras mécanique — pas de GPIO")
+            print("[SIMULATION] Bras mécanique ULN2003 — pas de GPIO")
 
     def _angle_to_steps(self, angle):
         return int(round(angle * config.STEPS_PER_DEGREE))
 
+    def _apply_phase(self):
+        pattern = FULL4WIRE_SEQUENCE[self._phase % len(FULL4WIRE_SEQUENCE)]
+        if self._gpio:
+            for coil, bit in zip(self._coils, pattern):
+                coil.on() if bit else coil.off()
+
     def _pulse_step(self, delay=None):
         delay = delay if delay is not None else config.STEP_DELAY_S
-        if self._gpio:
-            self._step.on()
-            time.sleep(delay)
-            self._step.off()
-            time.sleep(delay)
-        else:
-            time.sleep(delay * 2)
+        self._phase = (self._phase + self._dir_step) % len(FULL4WIRE_SEQUENCE)
+        self._apply_phase()
+        time.sleep(delay)
 
     def _set_direction(self, clockwise):
         if config.DIR_INVERT:
             clockwise = not clockwise
-        if self._gpio:
-            self._dir.value = 1 if clockwise else 0
+        self._dir_step = 1 if clockwise else -1
 
     def enable_motor(self, enabled=True):
+        """Alimente les bobines, ou les coupe (le 28BYJ-48 chauffe si on maintient)."""
+        if enabled:
+            self._apply_phase()
+            return
         if self._gpio:
-            self._enable.value = 0 if enabled else 1
+            for coil in self._coils:
+                coil.off()
 
     def home(self):
         """Ramène le bras au point zéro via le capteur."""
@@ -110,8 +133,10 @@ class ArmController:
     def cleanup(self):
         if self._gpio:
             self.enable_motor(False)
-            for dev in (self._step, self._dir, self._enable):
-                if dev is not None:
-                    dev.close()
+            for coil in self._coils:
+                coil.close()
+            self._coils = []
             if self._home is not None:
                 self._home.close()
+                self._home = None
+            self._gpio = False

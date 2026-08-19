@@ -22,12 +22,21 @@ def _is_raspberry_pi():
 IS_RASPBERRY = _is_raspberry_pi()
 
 # ---------------------------------------------------------------------------
-# GPIO — moteur pas-à-pas (rotation du bras)
+# GPIO — moteur pas-à-pas 28BYJ-48 + shield ULN2003 (4 fils)
+# Arduino Mega : AccelStepper FULL4WIRE, pins 33, 29, 31, 27
+#                (IN1, IN3, IN2, IN4 dans l'ordre AccelStepper)
 # ---------------------------------------------------------------------------
 
-GPIO_STEP = 17
-GPIO_DIR = 27
-GPIO_ENABLE = 22
+GPIO_STEPPER_IN1 = 17
+GPIO_STEPPER_IN2 = 27
+GPIO_STEPPER_IN3 = 22
+GPIO_STEPPER_IN4 = 14  # UART TX — désactiver le login série
+GPIO_STEPPER_PINS = (
+    GPIO_STEPPER_IN1,
+    GPIO_STEPPER_IN2,
+    GPIO_STEPPER_IN3,
+    GPIO_STEPPER_IN4,
+)
 GPIO_HOME_SWITCH = 23
 
 # ---------------------------------------------------------------------------
@@ -60,20 +69,20 @@ SERVO_MAX_PULSE_US = 2500
 SERVO_SETTLE_S = 0.6
 
 # ---------------------------------------------------------------------------
-# Moteur pas-à-pas
+# Moteur pas-à-pas 28BYJ-48 (réducteur 64:1) + ULN2003
+# AccelStepper FULL4WIRE : 2048 pas / tour  →  2048/360 ≈ 5,689 pas/°
 # ---------------------------------------------------------------------------
 
-STEPS_PER_REV = 200
-MICROSTEPS = 16
-GEAR_RATIO = 1.0
-STEPS_PER_DEGREE = (STEPS_PER_REV * MICROSTEPS * GEAR_RATIO) / 360.0
+STEPS_PER_REV = 2048
+STEPS_PER_DEGREE = STEPS_PER_REV / 360.0  # identique à degre * 5.689 sur l'Arduino
 
 # Étendu à ±180° pour le tri Magic (pas de 18°, comme sur l'Arduino).
 MIN_ANGLE = -180.0
 MAX_ANGLE = 180.0
 HOME_ANGLE = 0.0
 
-STEP_DELAY_S = 0.001
+# ~500 pas/s max, comme BaseRotation.setMaxSpeed(500) sur l'Arduino
+STEP_DELAY_S = 0.002
 HOME_SEARCH_CLOCKWISE = False
 HOME_BACKOFF_DEG = 2.0
 DIR_INVERT = False

@@ -35,7 +35,7 @@ Pendant le tri, `*` ou `C` demande l’arrêt.
 
 ## Câblage
 
-Les broches Mega du sketch (`50,48,46…` et `LiquidCrystal(22,24,26,28,30,32)`) sont reportées en BCM dans `config.py`. Détail : **[BRANCHEMENTS.md](BRANCHEMENTS.md)**.
+Les broches Mega du sketch (`50,48,46…`, `LiquidCrystal(22,24,26,28,30,32)` et `AccelStepper FULL4WIRE` 33/29/31/27) sont reportées en BCM dans `config.py`. Le moteur est un **28BYJ-48 + ULN2003**. Détail : **[BRANCHEMENTS.md](BRANCHEMENTS.md)**.
 
 ## Tests
 

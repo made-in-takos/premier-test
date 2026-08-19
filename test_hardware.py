@@ -5,7 +5,7 @@ Tests matériel GPIO — valide chaque composant avant main.py.
 Usage :
     python test_hardware.py status
     python test_hardware.py pins
-    python test_hardware.py step --steps 200 --dir cw
+    python test_hardware.py step --steps 512 --dir cw
     python test_hardware.py home
     python test_hardware.py move --angle -45
     python test_hardware.py scan
@@ -33,9 +33,10 @@ def cmd_status():
     from gpiozero import Button
 
     print("=== GPIO (BCM) ===")
-    print(f"  STEP         : {config.GPIO_STEP}")
-    print(f"  DIR          : {config.GPIO_DIR}")
-    print(f"  ENABLE       : {config.GPIO_ENABLE}")
+    print(f"  ULN2003 IN1  : {config.GPIO_STEPPER_IN1}")
+    print(f"  ULN2003 IN2  : {config.GPIO_STEPPER_IN2}")
+    print(f"  ULN2003 IN3  : {config.GPIO_STEPPER_IN3}")
+    print(f"  ULN2003 IN4  : {config.GPIO_STEPPER_IN4}")
     print(f"  HOME         : {config.GPIO_HOME_SWITCH}")
     print(f"  SERVO        : {config.GPIO_SERVO_TILT}")
     print(f"  POMPE_CARTE  : {config.GPIO_RELAY_PUMP_CARD}  (circuit 1 — ventouse)")
@@ -47,6 +48,7 @@ def cmd_status():
     print(f"  KEYPAD COLS  : {config.KEYPAD_COL_PINS}")
     print(f"\n  Servo UP={config.SERVO_ANGLE_UP}°  DOWN={config.SERVO_ANGLE_DOWN}°")
     print(f"  Rotation {config.MIN_ANGLE}° à {config.MAX_ANGLE}°")
+    print(f"  28BYJ-48 / ULN2003 : {config.STEPS_PER_REV} pas/tour")
 
     sw = Button(config.GPIO_HOME_SWITCH, pull_up=True, bounce_time=0.05)
     state = "ACTIF" if sw.is_pressed else "inactif"
@@ -58,9 +60,10 @@ def cmd_pins():
     from gpiozero import DigitalOutputDevice, Button
 
     outputs = {
-        "STEP": (config.GPIO_STEP, False),
-        "DIR": (config.GPIO_DIR, False),
-        "ENABLE": (config.GPIO_ENABLE, True),
+        "ULN2003_IN1": (config.GPIO_STEPPER_IN1, False),
+        "ULN2003_IN2": (config.GPIO_STEPPER_IN2, False),
+        "ULN2003_IN3": (config.GPIO_STEPPER_IN3, False),
+        "ULN2003_IN4": (config.GPIO_STEPPER_IN4, False),
         "POMPE_CARTE": (config.GPIO_RELAY_PUMP_CARD, config.RELAY_ACTIVE_LOW),
         "EV_CARTE": (config.GPIO_RELAY_VALVE_CARD, config.RELAY_ACTIVE_LOW),
         "POMPE_VERIN": (config.GPIO_RELAY_PUMP_LIFT, config.RELAY_ACTIVE_LOW),
@@ -303,7 +306,7 @@ def main():
     sub.add_parser("pick-cycle")
 
     p_step = sub.add_parser("step")
-    p_step.add_argument("--steps", type=int, default=100)
+    p_step.add_argument("--steps", type=int, default=512)
     p_step.add_argument("--dir", default="cw")
 
     p_move = sub.add_parser("move")

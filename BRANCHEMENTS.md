@@ -13,7 +13,7 @@ Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
 ┌─────────────────────────────────────────────────────────────────┐
 │                        RASPBERRY PI                              │
 │                                                                  │
-│  GPIO ──► Driver moteur pas-à-pas ──► Rotation bras (-90°/+90°) │
+│  GPIO ──► ULN2003 (28BYJ-48) ──► Rotation bras (±180°)           │
 │  GPIO ──► Servo ──► Inclinaison bras (prise carte)              │
 │  GPIO ──► 4 relais ──► 2 pompes + 2 électrovanne                │
 │  GPIO ──► Pavé 4×4 + LCD 16×2 ──► Menus (jeu, tri, nombre)      │
@@ -24,7 +24,7 @@ Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
 
 | Composant | Rôle |
 |-----------|------|
-| Moteur pas-à-pas | Rotation horizontale du bras |
+| Moteur 28BYJ-48 + ULN2003 | Rotation horizontale du bras |
 | Servomoteur | Inclinaison du bras (descendre / relever la ventouse) |
 | Circuit 1 (Pompe 1 + EV 1) | Aspiration et libération de la carte |
 | Circuit 2 (Pompe 2 + EV 2) | Monter / descendre le vérin d'un étage |
@@ -39,9 +39,10 @@ Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
 
 | GPIO (BCM) | Fonction | Connecté à |
 |------------|----------|------------|
-| **17** | STEP | Driver moteur pas-à-pas (impulsion pas) |
-| **27** | DIR | Driver moteur pas-à-pas (direction) |
-| **22** | ENABLE | Driver moteur pas-à-pas (actif bas) |
+| **17** | ULN2003 IN1 | Shield ULN2003 — bobine 1 (Arduino Mega 33) |
+| **27** | ULN2003 IN2 | Shield ULN2003 — bobine 2 |
+| **22** | ULN2003 IN3 | Shield ULN2003 — bobine 3 (Arduino Mega 31) |
+| **14** | ULN2003 IN4 | Shield ULN2003 — bobine 4 (Arduino Mega 27) — UART TX |
 | **23** | HOME | Capteur point zéro (contact → GND) |
 | **18** | SERVO | Signal PWM servomoteur (fil orange/jaune) |
 | **24** | RELAIS 1 | Pompe 1 — circuit ventouse carte |
@@ -55,8 +56,8 @@ Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
 | **20, 21, 4, 15** | KEYPAD COLS | Colonnes du pavé 4×4 |
 
 Broches communes :
-- **5V** → servomoteur et LCD (broche VCC / LED A via résistance)
-- **GND** → masse commune (Pi, driver, relais, capteur, LCD RW, pavé)
+- **5V** → ULN2003 (+), servomoteur et LCD (VCC / LED A via résistance)
+- **GND** → masse commune (Pi, ULN2003, relais, capteur, LCD RW, pavé)
 
 > Les numéros GPIO sont définis dans `config.py` et peuvent être modifiés si ton câblage diffère.
 
@@ -65,36 +66,58 @@ Broches communes :
 ## 1. Moteur pas-à-pas (rotation du bras)
 
 ### Matériel
-- Moteur pas-à-pas (ex. NEMA 17)
-- Driver : A4988, DRV8825 ou TMC2208
-- Alimentation moteur : **12 V externe** (selon moteur)
+- Moteur **28BYJ-48** 5 V (unipolaire, réducteur ~64:1)
+- Shield / module driver **ULN2003** (4 entrées IN1–IN4)
+- Alimentation moteur : **5 V** sur le `+` du ULN2003 (alim externe recommandée)
 - Capteur point zéro : micro-switch ou capteur à effet Hall
+
+C’est le même couple que sur l’Arduino (`AccelStepper::FULL4WIRE`, 2048 pas/tour).
 
 ### Schéma
 
 ```
-Raspberry Pi                 Driver (A4988 / DRV8825)          Moteur NEMA 17
-─────────────                ────────────────────────          ──────────────
-GPIO 17 (STEP)  ───────────► STEP
-GPIO 27 (DIR)   ───────────► DIR
-GPIO 22 (EN)    ───────────► ENABLE (actif bas = moteur actif)
-GND             ───────────► GND ◄──── GND alim 12V
-                             VMOT ◄─── +12V (alim externe)
-                             1A, 1B, 2A, 2B ────────────────► bobines moteur
+Raspberry Pi                    Shield ULN2003                 28BYJ-48
+─────────────                   ──────────────                 ────────
+GPIO 17 (IN1)  ───────────────► IN1
+GPIO 27 (IN2)  ───────────────► IN2
+GPIO 22 (IN3)  ───────────────► IN3
+GPIO 14 (IN4)  ───────────────► IN4     (UART TX — désactiver le login série)
+GND            ───────────────► GND  ◄──── GND alim 5 V
+                                 +   ◄──── +5 V (externe de préférence)
+                                 connecteur 5 plots ─────────► moteur
 
 GPIO 23 (HOME)  ◄─── contact capteur zéro ───► GND
                      (contact NO : fermé quand le bras est au zéro)
 ```
 
-### Réglages driver
-- **Micro-pas** : doit correspondre à `MICROSTEPS` dans `config.py` (défaut : 16)
-- **Courant** : ajuster le potentiomètre du driver (NEMA 17 ≈ 0,8–1,2 A)
-- **ENABLE actif bas** : GPIO 22 à LOW = moteur alimenté
+Correspondance avec le sketch Mega `AccelStepper BaseRotation(FULL4WIRE, 33, 29, 31, 27)` :
+
+| ULN2003 | Arduino Mega | Raspberry Pi (BCM) |
+|---------|--------------|--------------------|
+| IN1 | 33 | **17** |
+| IN2 | 31 | **27** |
+| IN3 | 29 | **22** |
+| IN4 | 27 | **14** |
+
+Pas de broches STEP / DIR / ENABLE : le Pi génère la séquence des 4 bobines (comme AccelStepper).
+
+### Réglages
+- **2048 pas / tour** (`STEPS_PER_REV` dans `config.py`) → 512 pas pour 90°, comme `2048/4` sur l’Arduino
+- **Délai entre pas** : `STEP_DELAY_S = 0.002` (~500 pas/s, `setMaxSpeed(500)`)
+- Si le moteur vibre sans tourner : inverser IN2 et IN3, ou `DIR_INVERT = True`
+- Après chaque mouvement les bobines sont coupées pour limiter l’échauffement du 28BYJ-48
 
 ### Capteur point zéro
 - Câblage : une patte du switch sur **GPIO 23**, l'autre sur **GND**
 - Le Pi utilise une résistance de pull-up interne
 - Le switch est **normalement ouvert (NO)** : il ferme vers GND quand le bras atteint le zéro
+
+GPIO 14 est aussi TXD de l’UART. Désactive le login série (déjà nécessaire pour le pavé sur GPIO 15) :
+
+```bash
+sudo raspi-config
+# Interface Options → Serial Port → login shell : No
+```
 
 ---
 
@@ -225,8 +248,8 @@ python check_camera.py
 ┌──────────────────┬────────────────────────────────────────────┐
 │ Composant        │ Alimentation                               │
 ├──────────────────┼────────────────────────────────────────────┤
-│ Raspberry Pi     │ 5 V (USB-C officiel, ≥ 3 A pour Pi 4)     │
-│ Moteur pas-à-pas │ 12 V externe → driver                      │
+│ Raspberry Pi     │ 5 V (USB-C officiel, ≥ 5 A pour Pi 5)     │
+│ 28BYJ-48 + ULN2003 │ 5 V sur le `+` du shield (externe de préférence) │
 │ Servomoteur      │ 5 V (Pi ou alim externe dédiée)            │
 │ Module relais    │ 5 V (broche VCC du module)                 │
 │ Pompes           │ Selon fiche technique (souvent 12 V)       │
@@ -235,10 +258,10 @@ python check_camera.py
 ```
 
 **Obligatoire :**
-1. Relier toutes les **masses (GND)** entre elles : Pi, driver, relais, alims externe
-2. Ne pas tirer le moteur pas-à-pas depuis le 5 V du Pi
+1. Relier toutes les **masses (GND)** entre elles : Pi, ULN2003, relais, alims externe
+2. Ne **pas** alimenter le ULN2003 en 12 V : le 28BYJ-48 est un moteur **5 V**
 3. Couper l'alimentation avant tout recâblage
-4. Utiliser des diodes de roue libre si le driver ne les intègre pas
+4. Le ULN2003 intègre déjà les diodes de roue libre
 
 ---
 
@@ -267,7 +290,7 @@ source venv/bin/activate
 
 python test_hardware.py status      # vérifier config GPIO
 python test_hardware.py pins        # clignotement relais + capteur zéro
-python test_hardware.py step --steps 200 --dir cw   # moteur pas-à-pas
+python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
 python test_hardware.py card-pick                   # ventouse
@@ -306,7 +329,7 @@ GPIO 4  ──────────────────────► Co
 GPIO 15 ──────────────────────► Colonne 4 (Arduino Mega 36)
 ```
 
-GPIO 15 est aussi RXD de l'UART. Désactive le login série :
+GPIO 15 est aussi RXD de l'UART, GPIO 14 (ULN2003 IN4) est TXD. Désactive le login série :
 
 ```bash
 sudo raspi-config
@@ -349,8 +372,10 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 
 | Problème | Piste |
 |----------|-------|
-| Moteur ne tourne pas | Vérifier ENABLE (GPIO 22), alim 12 V driver, courant driver |
+| Moteur ne tourne pas | Alim 5 V du ULN2003, IN1–IN4, login série désactivé (GPIO 14) |
+| Moteur vibre sur place | Inverser IN2 et IN3 sur le shield |
 | Sens de rotation inversé | `DIR_INVERT = True` dans `config.py` |
+| Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais ne switchent pas | `RELAY_ACTIVE_LOW`, alim 5 V module relais |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
@@ -370,7 +395,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | `lcd_display.py` | LCD HD44780 16×2 4 bits |
 | `menu.py` | Menus type de jeu / tri / nombre de cartes |
 | `sort_tables.py` | Angles Magic (18°) + Jeu 52 + Pokémon |
-| `arm_controller.py` | Moteur pas-à-pas + homing |
+| `arm_controller.py` | 28BYJ-48 + ULN2003 (séquence 4 fils) + homing |
 | `servo_controller.py` | Inclinaison bras |
 | `pneumatic.py` | Ventouse + vérin (4 relais) |
 | `test_hardware.py` | Tests composant par composant |
