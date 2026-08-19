@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Images de référence (générées localement sur le Pi)
+references/ranks/*.jpg
+references/ranks/*.png
+references/suits/*.jpg
+references/suits/*.png
+
+# Logs / temporaires
+*.log
+*.tmp
+.pytest_cache/
+.coverage

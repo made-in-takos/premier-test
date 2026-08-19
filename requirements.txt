@@ -1,0 +1,8 @@
+# Dépendances pour environnement virtuel (Raspberry Pi / PC)
+# Sur le Pi, préfère setup_pi.sh qui installe opencv/gpiozero via apt.
+
+numpy>=1.24.0
+
+# OpenCV : sur PC, installer via pip ; sur Pi, utiliser python3-opencv (apt)
+opencv-python>=4.8.0; platform_system=="Windows"
+opencv-python>=4.8.0; platform_system=="Darwin"
