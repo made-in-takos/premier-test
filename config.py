@@ -1,6 +1,6 @@
 """
 Configuration globale du trieur de cartes.
-Les angles servo et la polarite des relais suivent le sketch Arduino d'origine.
+Les angles servo suivent le sketch Arduino (course 40–130°).
 """
 
 import platform
@@ -44,10 +44,7 @@ GPIO_RELAY_VALVE_CARD = 25
 GPIO_RELAY_PUMP_LIFT = 5
 GPIO_RELAY_VALVE_LIFT = 6
 
-# Arduino : digitalWrite HIGH = pompe ON. La vanne piston etait inversee
-# (Allumer=true → LOW). Les modules "low level trigger" demandent True.
-RELAY_ACTIVE_LOW = False
-RELAY_INVERT_CHANNELS = ("valve_lift",)
+RELAY_ACTIVE_LOW = True
 
 # ---------------------------------------------------------------------------
 # GPIO — servomoteur (inclinaison du bras)

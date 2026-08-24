@@ -3,7 +3,7 @@
 Tests materiel GPIO.
 
     python test_hardware.py status
-    python test_hardware.py relays --hold 3
+    python test_hardware.py pins
     python test_hardware.py servo-sweep
     python test_hardware.py servo --angle 130
     python test_hardware.py servo-calibrate
@@ -38,8 +38,7 @@ def cmd_status():
     print(f"  POMPE_VERIN  : {config.GPIO_RELAY_PUMP_LIFT}")
     print(f"  EV_VERIN     : {config.GPIO_RELAY_VALVE_LIFT}")
     print(f"\n  Servo DOWN={config.SERVO_ANGLE_DOWN}°  UP={config.SERVO_ANGLE_UP}°  (limite {config.SERVO_MIN_ANGLE}–{config.SERVO_MAX_ANGLE}°)")
-    print(f"  Relais active_low={config.RELAY_ACTIVE_LOW}  invert={config.RELAY_INVERT_CHANNELS}")
-    print("  (comme Arduino : HIGH=ON, vanne piston inversee)")
+    print(f"  Rotation {config.MIN_ANGLE}° a {config.MAX_ANGLE}°")
 
     sw = Button(config.GPIO_HOME_SWITCH, pull_up=True, bounce_time=0.05)
     state = "ACTIF" if sw.is_pressed else "inactif"
@@ -47,38 +46,44 @@ def cmd_status():
     sw.close()
 
 
-def cmd_relays(hold):
-    from gpiozero import DigitalOutputDevice
+def cmd_pins():
+    from gpiozero import DigitalOutputDevice, Button
 
-    active_high = not config.RELAY_ACTIVE_LOW
-    channels = [
-        ("POMPE_CARTE", config.GPIO_RELAY_PUMP_CARD),
-        ("EV_CARTE", config.GPIO_RELAY_VALVE_CARD),
-        ("POMPE_VERIN", config.GPIO_RELAY_PUMP_LIFT),
-        ("EV_VERIN", config.GPIO_RELAY_VALVE_LIFT),
-    ]
-    print(f"Chaque relais ON pendant {hold}s (active_high={active_high})…")
-    print("Tu dois entendre un clic et voir la LED du module.")
-    devices = []
+    outputs = {
+        "STEP": (config.GPIO_STEP, False),
+        "DIR": (config.GPIO_DIR, False),
+        "ENABLE": (config.GPIO_ENABLE, True),
+        "POMPE_CARTE": (config.GPIO_RELAY_PUMP_CARD, config.RELAY_ACTIVE_LOW),
+        "EV_CARTE": (config.GPIO_RELAY_VALVE_CARD, config.RELAY_ACTIVE_LOW),
+        "POMPE_VERIN": (config.GPIO_RELAY_PUMP_LIFT, config.RELAY_ACTIVE_LOW),
+        "EV_VERIN": (config.GPIO_RELAY_VALVE_LIFT, config.RELAY_ACTIVE_LOW),
+    }
+    devices = {}
+
+    print("=== Clignotement GPIO (5x chacun) ===")
     try:
-        for name, pin in channels:
-            dev = DigitalOutputDevice(pin, active_high=active_high, initial_value=False)
-            devices.append(dev)
-            print(f"  {name} GPIO {pin} ON")
-            dev.on()
-            time.sleep(hold)
-            print(f"  {name} OFF")
-            dev.off()
-            time.sleep(0.4)
+        for name, (pin, active_low) in outputs.items():
+            dev = DigitalOutputDevice(pin, active_high=not active_low, initial_value=False)
+            devices[name] = dev
+            print(f"  {name} (GPIO {pin})…")
+            for _ in range(5):
+                dev.on()
+                time.sleep(0.25)
+                dev.off()
+                time.sleep(0.25)
+
+        sw = Button(config.GPIO_HOME_SWITCH, pull_up=True, bounce_time=0.05)
+        print("\nCapteur zero — actionne le switch (10 s)…")
+        t0 = time.time()
+        while time.time() - t0 < 10:
+            if sw.is_pressed:
+                print("  → Detecte !")
+            time.sleep(0.1)
+        sw.close()
     finally:
-        for dev in devices:
+        for dev in devices.values():
             dev.off()
             dev.close()
-    print("Si rien n'a clique : mets RELAY_ACTIVE_LOW = True dans config.py (module low-trigger).")
-
-
-def cmd_pins():
-    cmd_relays(0.25)
 
 
 def cmd_step(steps, direction):
@@ -262,9 +267,6 @@ def main():
     sub.add_parser("lift-up")
     sub.add_parser("pick-cycle")
 
-    p_relays = sub.add_parser("relays")
-    p_relays.add_argument("--hold", type=float, default=3.0)
-
     p_step = sub.add_parser("step")
     p_step.add_argument("--steps", type=int, default=100)
     p_step.add_argument("--dir", default="cw")
@@ -283,7 +285,6 @@ def main():
     commands = {
         "status": cmd_status,
         "pins": cmd_pins,
-        "relays": lambda: cmd_relays(args.hold),
         "home": cmd_home,
         "scan": cmd_scan,
         "servo-calibrate": cmd_servo_calibrate,
