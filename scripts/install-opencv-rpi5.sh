@@ -50,6 +50,8 @@ if command -v apt-get >/dev/null 2>&1; then
     python3-numpy \
     python3-opencv \
     python3-picamera2 \
+    python3-gpiozero \
+    python3-lgpio \
     build-essential \
     pkg-config \
     libssl-dev \

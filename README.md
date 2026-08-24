@@ -56,6 +56,26 @@ python python/detect_cards.py --image photo.jpg --save resultat.jpg --no-window
 
 Picamera2 (CSI) est essayé en premier, sinon webcam USB.
 
+## Relais et servo qui ne bougent pas
+
+Deux écarts avec ton sketch Arduino Mega :
+
+1. **Servo** : `Servo.write()` allait de **40° à 130°** (relevé = 130, baissé ≈ 40/50), à **40 ms par degré**. Le code Pi envoyait 25° et 90° — hors course, le bras paraît mort. C’est recalé : `SERVO_ANGLE_DOWN = 40`, `SERVO_ANGLE_UP = 130`, déplacement 1° par 1°.
+2. **Relais** : l’Arduino faisait `digitalWrite HIGH` pour allumer les pompes, et **inversait** l’électrovanne piston. Le Pi traitait tous les relais en actif-bas. `RELAY_ACTIVE_LOW = False` + inversion de `valve_lift`.
+
+Sur **Pi 5**, `RPi.GPIO` / `pigpio` ne commandent pas les broches. Installe `python3-lgpio` (le script d’install le fait).
+
+```bash
+sudo apt install -y python3-gpiozero python3-lgpio
+source .venv/bin/activate
+python test_hardware.py relays --hold 3
+python test_hardware.py servo-sweep
+```
+
+Si les relais ne cliquent toujours pas (module « low trigger ») : dans `config.py`, `RELAY_ACTIVE_LOW = True`.
+
+Alim **5 V externe** pour le servo (pas le 5 V du Pi). Masses Pi / module relais / alim servo communes.
+
 ## Tests sans caméra
 
 ```bash
@@ -76,5 +96,9 @@ python -m pytest tests
 | `python/detect_cards.py` | Boucle caméra |
 | `python/capture_references.py` | Photos de référence |
 | `python/camera.py` | Picamera2 / USB |
+| `config.py` | Broches GPIO, 40–130°, polarité relais |
+| `servo_controller.py` | Inclinaison (course Arduino) |
+| `pneumatic.py` | 4 relais pompes / vannes |
+| `test_hardware.py` | `relays` et `servo-sweep` |
 | `scripts/install-opencv-rpi5.sh` | Installation OpenCV |
 | `references/` | Templates du jeu |

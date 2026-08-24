@@ -4,3 +4,4 @@
 numpy>=1.26,<3
 opencv-contrib-python>=4.10,<5
 mediapipe>=1.0.1
+gpiozero>=2.0
