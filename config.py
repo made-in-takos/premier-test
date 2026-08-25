@@ -61,14 +61,16 @@ RELAY_ACTIVE_LOW = True
 # GPIO — servomoteur (inclinaison du bras)
 # ---------------------------------------------------------------------------
 
-# Repos = position basse. Identique au sketch Arduino.
-# Le servo ne lit PAS des degrés : write(50) envoie une impulsion (~1060 µs).
-# Si le bras ne monte pas assez, baisse SERVO_ANGLE_UP vers 0 (essaie 20, 10, 0).
+# write(n) ≈ n degrés mécaniques sur un servo hobby (impulsion 1,0–2,0 ms).
+# L'Arduino Servo.h utilisait 544–2400 µs : write(50) n'était PAS 50°.
+# Plus de course (butées) : 500 et 2500. Copie Arduino : 544 et 2400.
 GPIO_SERVO_TILT = 18  # pin physique 12
-SERVO_MIN_PULSE_US = 544   # Servo.h write(0)
-SERVO_MAX_PULSE_US = 2400  # Servo.h write(180)
-SERVO_ANGLE_UP = 50        # plus petit = plus haut (échelle Arduino 0–180)
-SERVO_ANGLE_DOWN = 130     # plus grand = plus bas
+SERVO_MIN_PULSE_US = 1000
+SERVO_MAX_PULSE_US = 2000
+SERVO_ANGLE_UP = 50
+SERVO_ANGLE_DOWN = 130
+SERVO_INVERT = False       # True si le haut et le bas sont inversés
+SERVO_PULSE_TRIM_US = 0    # ajuste toutes les impulsions (ex. -80 si trop "bas")
 SERVO_SPEED_MS = 40  # delay par degré (FCTControlleServo)
 
 # ---------------------------------------------------------------------------

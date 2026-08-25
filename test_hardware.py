@@ -159,15 +159,12 @@ def cmd_scan():
 
 
 def cmd_servo(angle):
-    from servo_controller import ServoController, angle_to_pulse_us
+    from servo_controller import ServoController, command_pulse_us
 
     servo = ServoController()
     try:
-        pulse = angle_to_pulse_us(angle)
-        print(
-            f"Servo.write({int(round(angle))}) → {pulse:.0f} µs  "
-            f"(pas {int(round(angle))}° mécaniques)"
-        )
+        pulse = command_pulse_us(angle)
+        print(f"Servo.write({int(round(angle))}) → {pulse:.0f} µs  (≈ {int(round(angle))}° hobby 1–2 ms)")
         servo.write(angle)
         input("Entrée pour arrêter…")
     finally:
@@ -175,56 +172,51 @@ def cmd_servo(angle):
 
 
 def cmd_servo_calibrate():
-    from servo_controller import ServoController, angle_to_pulse_us
+    from servo_controller import ServoController, command_pulse_us
 
-    print("Le servo ne lit PAS des degrés.")
-    print("write(n) envoie une impulsion, comme Servo.write() sur l'Arduino.")
-    print("Si le bras n'est pas assez haut : note un nombre PLUS PETIT (20, 10, 0).")
-    print("Si pas assez bas : un nombre PLUS GRAND (150, 170, 180).")
-    print("Puis mets SERVO_ANGLE_UP / SERVO_ANGLE_DOWN dans config.py")
+    print("write(n) ≈ n degrés (1000–2000 µs). PWM 50 Hz.")
+    print("Regarde le bras. Note le n du HAUT et du BAS.")
+    print("  SERVO_ANGLE_UP / SERVO_ANGLE_DOWN dans config.py")
+    print("  Sens inversé → SERVO_INVERT = True")
+    print("  Course trop courte → SERVO_MIN_PULSE_US=500, SERVO_MAX_PULSE_US=2500")
     servo = ServoController()
     try:
-        for angle in (0, 20, 40, 50, 70, 90, 110, 130, 150, 180):
-            pulse = angle_to_pulse_us(angle)
-            print(f"\nwrite({angle}) = {pulse:.0f} µs — Entrée pour continuer, Q pour quitter")
+        for angle in range(0, 181, 15):
+            print(f"  write({angle:3d}) = {command_pulse_us(angle):.0f} µs")
             servo.write(angle)
-            time.sleep(0.8)
-            if input().strip().lower() == "q":
-                break
+            time.sleep(1.2)
+        print("Termine. Ex. SERVO_ANGLE_UP = 45  SERVO_ANGLE_DOWN = 135")
+        input("Entrée pour quitter…")
     finally:
         servo.cleanup()
 
 
 def cmd_servo_sweep():
     from gpio_out import describe
-    from servo_controller import ServoController, angle_to_pulse_us
+    from servo_controller import ServoController, command_pulse_us
 
     print(f"Signal servo → {describe(config.GPIO_SERVO_TILT)}")
     print(
-        f"write({config.SERVO_ANGLE_UP}) = "
-        f"{angle_to_pulse_us(config.SERVO_ANGLE_UP):.0f} µs (haut), "
-        f"write({config.SERVO_ANGLE_DOWN}) = "
-        f"{angle_to_pulse_us(config.SERVO_ANGLE_DOWN):.0f} µs (bas)."
+        f"write(n) ≈ n°  ({config.SERVO_MIN_PULSE_US}–{config.SERVO_MAX_PULSE_US} µs). "
+        f"UP={config.SERVO_ANGLE_UP} DOWN={config.SERVO_ANGLE_DOWN}"
+        f"{' INVERT' if config.SERVO_INVERT else ''}"
     )
-    print("PWM 50 Hz généré par gpio_write (le timer lgpio du Pi 5 est ~2,5 Hz).")
     servo = ServoController()
     try:
         time.sleep(0.7)
-        hz = servo.measured_hz
-        print(f"  Fréquence PWM mesurée : {hz:.1f} Hz (cible 50)")
-        if hz and hz < 20:
-            print("  Trop lent — le thread PWM ne tourne pas à 50 Hz.")
+        print(f"  PWM mesuré : {servo.measured_hz:.1f} Hz (cible 50)")
         for label, angle in (
+            ("0°", 0),
+            ("90°", 90),
+            ("180°", 180),
             ("haut", config.SERVO_ANGLE_UP),
             ("bas", config.SERVO_ANGLE_DOWN),
             ("haut", config.SERVO_ANGLE_UP),
-            ("bas", config.SERVO_ANGLE_DOWN),
         ):
-            print(f"  {label}  write({angle}) = {angle_to_pulse_us(angle):.0f} µs")
+            print(f"  {label}  write({angle}) = {command_pulse_us(angle):.0f} µs")
             servo.write(angle)
-            time.sleep(1.5)
-            print(f"    PWM {servo.measured_hz:.1f} Hz")
-        print("Test terminé.")
+            time.sleep(1.4)
+        print("Test terminé. Si 0° et 180° sont inversés : SERVO_INVERT = True")
     finally:
         servo.cleanup()
 

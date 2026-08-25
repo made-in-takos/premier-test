@@ -20,11 +20,19 @@ _REFRESH_HZ = 50
 
 
 def angle_to_pulse_us(angle):
-    """Équivalent de Servo.write : 0–180 → min–max µs (Servo.h)."""
+    """0° → MIN µs, 180° → MAX µs (linéaire)."""
     lo = float(config.SERVO_MIN_PULSE_US)
     hi = float(config.SERVO_MAX_PULSE_US)
     angle = max(0, min(180, int(round(angle))))
     return lo + (angle / 180.0) * (hi - lo)
+
+
+def command_pulse_us(angle):
+    """Impulsion réellement envoyée (inversion + trim)."""
+    angle = max(0, min(180, int(round(angle))))
+    if config.SERVO_INVERT:
+        angle = 180 - angle
+    return angle_to_pulse_us(angle) + float(config.SERVO_PULSE_TRIM_US)
 
 
 class _GpioWritePwm:
@@ -35,6 +43,7 @@ class _GpioWritePwm:
         self._handle = handle
         self._gpio = gpio
         self._pulse_us = float(pulse_us)
+        self._off_comp_ns = self._median_write_ns()
         self._lock = threading.Lock()
         self._running = True
         self.measured_hz = 0.0
@@ -46,6 +55,17 @@ class _GpioWritePwm:
     def set_pulse_us(self, pulse_us):
         with self._lock:
             self._pulse_us = float(pulse_us)
+
+    def _median_write_ns(self, samples=40):
+        write = self._lgpio.gpio_write
+        handle, gpio = self._handle, self._gpio
+        times = []
+        for _ in range(samples):
+            t0 = time.perf_counter_ns()
+            write(handle, gpio, 0)
+            times.append(time.perf_counter_ns() - t0)
+        times.sort()
+        return times[len(times) // 2]
 
     def stop(self):
         self._running = False
@@ -66,9 +86,12 @@ class _GpioWritePwm:
             with self._lock:
                 pulse_ns = int(self._pulse_us * 1000)
             pulse_ns = max(500_000, min(2_500_000, pulse_ns))
-            start = time.perf_counter_ns()
+            # Compte à partir du moment où la broche est déjà HIGH.
             write(handle, gpio, 1)
-            until = start + pulse_ns
+            start = time.perf_counter_ns()
+            until = start + pulse_ns - self._off_comp_ns
+            if until < start + 200_000:
+                until = start + 200_000
             while time.perf_counter_ns() < until:
                 pass
             write(handle, gpio, 0)
@@ -118,7 +141,7 @@ class ServoController:
         angle = max(0, min(180, int(round(angle))))
         self._angle = angle
         if self._pwm is not None:
-            self._pwm.set_pulse_us(angle_to_pulse_us(angle))
+            self._pwm.set_pulse_us(command_pulse_us(angle))
 
     def move_to(self, angle, wait=True):
         """Équivalent de FCTControlleServo(cible, vitesse)."""
@@ -133,12 +156,12 @@ class ServoController:
         self.write(target)
 
     def up(self):
-        pulse = angle_to_pulse_us(config.SERVO_ANGLE_UP)
+        pulse = command_pulse_us(config.SERVO_ANGLE_UP)
         print(f"  Servo : monter  write({config.SERVO_ANGLE_UP}) = {pulse:.0f} µs")
         self.move_to(config.SERVO_ANGLE_UP)
 
     def down(self):
-        pulse = angle_to_pulse_us(config.SERVO_ANGLE_DOWN)
+        pulse = command_pulse_us(config.SERVO_ANGLE_DOWN)
         print(f"  Servo : descendre  write({config.SERVO_ANGLE_DOWN}) = {pulse:.0f} µs")
         self.move_to(config.SERVO_ANGLE_DOWN)
 
@@ -164,12 +187,13 @@ class ServoController:
         bcm = config.GPIO_SERVO_TILT
         self._lgpio, self._handle, self._gpio = claim_lgpio_output(bcm)
         _stop_lgpio_timer_pwm(self._lgpio, self._handle, self._gpio)
-        rest = angle_to_pulse_us(self._angle)
+        rest = command_pulse_us(self._angle)
         self._pwm = _GpioWritePwm(self._lgpio, self._handle, self._gpio, rest)
         print(
-            f"Servo {describe(bcm)}  —  PWM 50 Hz par gpio_write "
-            f"(pas le timer lgpio). write(0)={config.SERVO_MIN_PULSE_US} µs, "
-            f"write(180)={config.SERVO_MAX_PULSE_US} µs"
+            f"Servo {describe(bcm)}  —  write(n) ≈ n°  "
+            f"({config.SERVO_MIN_PULSE_US}–{config.SERVO_MAX_PULSE_US} µs), "
+            f"gpio_write {self._pwm._off_comp_ns / 1000:.0f} µs compensés"
+            f"{', INVERT' if config.SERVO_INVERT else ''}"
         )
 
     def _detach(self):
