@@ -139,9 +139,9 @@ GND commun  ────────────► Fil − (marron / noir)  ←
 > La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).  
 > Le fil orange du servo se branche **à côté** du fil ULN2003 IN1 (pin 11), pas sur la pin 18.
 
-Le servo utilise **`lgpio.tx_servo`** : 50 impulsions/s, largeur en µs
-(comme `Servo.writeMicroseconds`). `write(50)` n’est **pas** 50° mécaniques.
-Ne pas utiliser `tx_pulse(on, off)` : sur Pi 5 ça sort ~2,5 Hz (tick-tick).
+Le servo utilise un PWM **50 Hz** fait avec `lgpio.gpio_write` (comme le stepper).
+Les timers lgpio `tx_pulse` / `tx_pwm` / `tx_servo` sortent ~**2,5 Hz** sur Pi 5
+(tick-tick, un cran de temps en temps) : ils ne sont plus utilisés.
 
 ### Test
 
@@ -456,7 +456,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais alimentés mais pas de clic / LED IN éteinte | Alim 5 V ≠ signal IN. `python test_hardware.py relays` (HIGH puis LOW). Pin physique 18 = BCM 24, pas BCM 18. Trigger LOW déjà activé. Si LED IN ne s’allume jamais : jumper IN→GND, sinon transistor / module 3,3 V |
-| Servo tick-tick ~2,5 fois/s, rampe au ralenti | Ce n’était pas les angles : `tx_pulse` n’envoyait pas du 50 Hz. Relancer `servo-sweep` (tx_servo). Mouvement franc puis maintien, pas des clacs |
+| Servo tick-tick ~2,5 fois/s, un cran de temps en temps | Timer lgpio du Pi 5 (tx_pulse/tx_servo). Le code génère maintenant 50 Hz via gpio_write. `servo-sweep` doit afficher « PWM ~50 Hz ». Si ça tick encore alors que la mesure est 50 Hz : signal 3,3 V trop juste, alim 5 V dédiée + GND commun |
 | Servo alimenté mais ne bouge pas | Signal sur **pin physique 12** (BCM 18), à côté du stepper IN1 pin 11 — **pas** la pin 18. `blink --bcm 18` puis `servo-sweep`. GND commun + 5 V dédié |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |

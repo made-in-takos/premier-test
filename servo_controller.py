@@ -3,14 +3,13 @@ Servomoteur d'inclinaison — même usage que le sketch Arduino.
 
     ControlHauteurBras.write(50)
 
-Le servo ne comprend PAS les degrés : il veut ~50 impulsions par seconde
-dont la largeur (µs) code la position. write(angle) est l'échelle 0–180
-de Servo.h (544–2400 µs).
-
-lgpio.tx_pulse(on, off) n'est PAS cet API : sur le Pi 5 ça sort ~2,5 Hz
-(tick-tick lent). On utilise tx_servo(largeur_µs), prévu pour ça.
+Le servo veut 50 impulsions/s (toutes les 20 ms). Sur le Pi 5, le timer
+logiciel lgpio (tx_pulse / tx_pwm / tx_servo) sort ~2,5 Hz : tick-tick
+et un cran de temps en temps. On génère le 50 Hz nous-mêmes avec
+lgpio.gpio_write — le même appel que le stepper qui marche.
 """
 
+import threading
 import time
 
 import config
@@ -18,9 +17,6 @@ from gpio_out import claim_lgpio_output, describe
 
 _REFRESH_US = 20_000
 _REFRESH_HZ = 50
-# Plage documentée de lgpio.tx_servo (0 = stop).
-_SERVO_TX_MIN_US = 500
-_SERVO_TX_MAX_US = 2500
 
 
 def angle_to_pulse_us(angle):
@@ -31,12 +27,85 @@ def angle_to_pulse_us(angle):
     return lo + (angle / 180.0) * (hi - lo)
 
 
+class _GpioWritePwm:
+    """PWM 50 Hz par gpio_write. N'utilise pas le timer lgpio (cassé sur Pi 5)."""
+
+    def __init__(self, lgpio_mod, handle, gpio, pulse_us):
+        self._lgpio = lgpio_mod
+        self._handle = handle
+        self._gpio = gpio
+        self._pulse_us = float(pulse_us)
+        self._lock = threading.Lock()
+        self._running = True
+        self.measured_hz = 0.0
+        self._thread = threading.Thread(
+            target=self._loop, daemon=True, name="servo-pwm-50hz"
+        )
+        self._thread.start()
+
+    def set_pulse_us(self, pulse_us):
+        with self._lock:
+            self._pulse_us = float(pulse_us)
+
+    def stop(self):
+        self._running = False
+        self._thread.join(timeout=0.6)
+        try:
+            self._lgpio.gpio_write(self._handle, self._gpio, 0)
+        except Exception:
+            pass
+
+    def _loop(self):
+        write = self._lgpio.gpio_write
+        handle = self._handle
+        gpio = self._gpio
+        period_ns = _REFRESH_US * 1000
+        pulses = 0
+        window_start = time.perf_counter()
+        while self._running:
+            with self._lock:
+                pulse_ns = int(self._pulse_us * 1000)
+            pulse_ns = max(500_000, min(2_500_000, pulse_ns))
+            start = time.perf_counter_ns()
+            write(handle, gpio, 1)
+            until = start + pulse_ns
+            while time.perf_counter_ns() < until:
+                pass
+            write(handle, gpio, 0)
+            pulses += 1
+            now = time.perf_counter()
+            elapsed = now - window_start
+            if elapsed >= 0.5:
+                self.measured_hz = pulses / elapsed
+                pulses = 0
+                window_start = now
+            remain_ns = period_ns - (time.perf_counter_ns() - start)
+            if remain_ns > 2_000_000:
+                time.sleep((remain_ns - 500_000) / 1_000_000_000)
+            while self._running and time.perf_counter_ns() - start < period_ns:
+                pass
+
+
+def _stop_lgpio_timer_pwm(lgpio_mod, handle, gpio):
+    """Coupe tx_pulse/tx_pwm/tx_servo s'ils tournent encore (timer ~2,5 Hz)."""
+    for call in (
+        lambda: lgpio_mod.tx_pwm(handle, gpio, 0, 0),
+        lambda: lgpio_mod.tx_servo(handle, gpio, 0),
+        lambda: lgpio_mod.tx_pulse(handle, gpio, 0, 0),
+    ):
+        try:
+            call()
+        except Exception:
+            pass
+
+
 class ServoController:
     def __init__(self):
         self._angle = config.SERVO_ANGLE_DOWN
         self._lgpio = None
         self._handle = None
         self._gpio = None
+        self._pwm = None
 
         if config.IS_RASPBERRY:
             self._attach()
@@ -48,8 +117,8 @@ class ServoController:
         """Équivalent de ControlHauteurBras.write(angle)."""
         angle = max(0, min(180, int(round(angle))))
         self._angle = angle
-        if self._handle is not None:
-            self._send_pulse(angle_to_pulse_us(angle))
+        if self._pwm is not None:
+            self._pwm.set_pulse_us(angle_to_pulse_us(angle))
 
     def move_to(self, angle, wait=True):
         """Équivalent de FCTControlleServo(cible, vitesse)."""
@@ -77,6 +146,12 @@ class ServoController:
     def current_angle(self):
         return self._angle
 
+    @property
+    def measured_hz(self):
+        if self._pwm is None:
+            return 0.0
+        return float(self._pwm.measured_hz)
+
     def cleanup(self, park=True):
         if park and config.IS_RASPBERRY:
             try:
@@ -88,39 +163,25 @@ class ServoController:
     def _attach(self):
         bcm = config.GPIO_SERVO_TILT
         self._lgpio, self._handle, self._gpio = claim_lgpio_output(bcm)
+        _stop_lgpio_timer_pwm(self._lgpio, self._handle, self._gpio)
+        rest = angle_to_pulse_us(self._angle)
+        self._pwm = _GpioWritePwm(self._lgpio, self._handle, self._gpio, rest)
         print(
-            f"Servo {describe(bcm)}  —  tx_servo 50 Hz, "
-            f"write(0)={config.SERVO_MIN_PULSE_US} µs, "
+            f"Servo {describe(bcm)}  —  PWM 50 Hz par gpio_write "
+            f"(pas le timer lgpio). write(0)={config.SERVO_MIN_PULSE_US} µs, "
             f"write(180)={config.SERVO_MAX_PULSE_US} µs"
         )
 
-    def _send_pulse(self, pulse_us):
-        width = int(round(pulse_us))
-        width = max(_SERVO_TX_MIN_US, min(_SERVO_TX_MAX_US, width))
-        # 50 impulsions/s, largeur en µs — comme Servo.writeMicroseconds().
-        if hasattr(self._lgpio, "tx_servo"):
-            self._lgpio.tx_servo(self._handle, self._gpio, width)
-            return
-        duty = 100.0 * width / _REFRESH_US
-        self._lgpio.tx_pwm(self._handle, self._gpio, float(_REFRESH_HZ), duty)
-
-    def _stop_pwm(self):
-        if self._handle is None or self._gpio is None or self._lgpio is None:
-            return
-        try:
-            if hasattr(self._lgpio, "tx_servo"):
-                self._lgpio.tx_servo(self._handle, self._gpio, 0)
-            else:
-                self._lgpio.tx_pwm(self._handle, self._gpio, 0, 0)
-        except Exception:
-            pass
-        try:
-            self._lgpio.gpio_free(self._handle, self._gpio)
-        except Exception:
-            pass
-
     def _detach(self):
-        self._stop_pwm()
+        if self._pwm is not None:
+            self._pwm.stop()
+            self._pwm = None
+        if self._handle is not None and self._gpio is not None and self._lgpio is not None:
+            try:
+                self._lgpio.gpio_write(self._handle, self._gpio, 0)
+                self._lgpio.gpio_free(self._handle, self._gpio)
+            except Exception:
+                pass
         self._handle = None
         self._gpio = None
         self._lgpio = None

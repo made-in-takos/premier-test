@@ -206,11 +206,14 @@ def cmd_servo_sweep():
         f"write({config.SERVO_ANGLE_DOWN}) = "
         f"{angle_to_pulse_us(config.SERVO_ANGLE_DOWN):.0f} µs (bas)."
     )
-    print("Ce ne sont pas des degrés mécaniques. Calibration : servo-calibrate")
-    print("Attendu : un mouvement franc, puis un maintien (léger buzz 50 Hz).")
-    print("Si tu entends tick-tick ~2,5 fois/s, le PWM n'est pas à 50 Hz.")
+    print("PWM 50 Hz généré par gpio_write (le timer lgpio du Pi 5 est ~2,5 Hz).")
     servo = ServoController()
     try:
+        time.sleep(0.7)
+        hz = servo.measured_hz
+        print(f"  Fréquence PWM mesurée : {hz:.1f} Hz (cible 50)")
+        if hz and hz < 20:
+            print("  Trop lent — le thread PWM ne tourne pas à 50 Hz.")
         for label, angle in (
             ("haut", config.SERVO_ANGLE_UP),
             ("bas", config.SERVO_ANGLE_DOWN),
@@ -220,6 +223,7 @@ def cmd_servo_sweep():
             print(f"  {label}  write({angle}) = {angle_to_pulse_us(angle):.0f} µs")
             servo.write(angle)
             time.sleep(1.5)
+            print(f"    PWM {servo.measured_hz:.1f} Hz")
         print("Test terminé.")
     finally:
         servo.cleanup()

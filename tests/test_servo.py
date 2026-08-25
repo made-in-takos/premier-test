@@ -28,3 +28,4 @@ def test_monter_descendre_monter_descendre():
     assert servo.current_angle == config.SERVO_ANGLE_DOWN
 
     servo.cleanup()
+    assert servo.measured_hz == 0.0
