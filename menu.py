@@ -117,7 +117,7 @@ class SorterUI:
         self.lcd.message("En test", "# pour menu")
 
     def _test_relays(self):
-        self.lcd.message("Test relais", "ON / OFF")
+        self.lcd.message("Test relais", "HIGH puis LOW")
         if not self.pneumatic:
             return
         self.pneumatic.test_each()

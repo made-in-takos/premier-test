@@ -1,13 +1,15 @@
 """
-Relais pneumatiques — même logique que le sketch Arduino.
+Relais pneumatiques.
 
-    digitalWrite(PompeVentousePin, HIGH);  # ON
-    digitalWrite(PompeVentousePin, LOW);   # OFF
+Le Pi sort du 3,3 V (l'Arduino du 5 V). Les modules relais 5 V « trigger HIGH »
+ne voient souvent pas le signal. Sur Pi on commande par défaut en actif-bas
+(GPIO à 0 V = ON), ce que les modules 5 V comprennent.
 """
 
 import time
 
 import config
+from gpio_out import describe, digital_output
 
 RELAY_NAMES = (
     ("pump_card", "Pompe 1 carte"),
@@ -18,7 +20,7 @@ RELAY_NAMES = (
 
 
 def gpio_high_for(on):
-    """Niveau GPIO (True = 3,3 V) pour allumer ou éteindre un relais."""
+    """True = 3,3 V sur la broche IN."""
     return (not on) if config.RELAY_ACTIVE_LOW else bool(on)
 
 
@@ -35,15 +37,11 @@ class PneumaticController:
         self._lift_level = 0
 
         if self._gpio:
-            from gpiozero import DigitalOutputDevice
-
             for name, pin in self._pins.items():
-                # active_high=True : on() = HIGH, comme digitalWrite(HIGH)
-                self._relays[name] = DigitalOutputDevice(
-                    pin, active_high=True, initial_value=gpio_high_for(False)
-                )
-            polarite = "LOW" if config.RELAY_ACTIVE_LOW else "HIGH"
-            print(f"Relais : ON = GPIO {polarite} (comme Arduino HIGH si HIGH)")
+                self._relays[name] = digital_output(pin, initial_high=gpio_high_for(False))
+                print(f"  Relais {name}: {describe(pin)}")
+            polarite = "LOW (0 V)" if config.RELAY_ACTIVE_LOW else "HIGH (3,3 V)"
+            print(f"Relais : ON = GPIO {polarite}")
         else:
             print("[SIMULATION] Relais")
 
@@ -56,7 +54,10 @@ class PneumaticController:
                 self._relays[name].on()
             else:
                 self._relays[name].off()
-        print(f"  {name} GPIO {self._pins[name]} → {'HIGH' if high else 'LOW'} ({'ON' if on else 'OFF'})")
+        print(
+            f"  {name} {describe(self._pins[name])} → "
+            f"{'HIGH 3,3V' if high else 'LOW 0V'} ({'ON' if on else 'OFF'})"
+        )
 
     def _card_off(self):
         self._set("pump_card", False)
@@ -112,15 +113,23 @@ class PneumaticController:
         self.to_pickup_height()
 
     def test_each(self, hold_s=None):
-        """Comme le case '3' Arduino : chaque relais ON 2 s, OFF 2 s."""
+        """
+        Force HIGH puis LOW sur chaque IN, indépendamment de la polarité.
+        Un clic / LED doit apparaître sur l'un des deux niveaux.
+        """
         hold_s = config.HARDWARE_TEST_HOLD_S if hold_s is None else hold_s
-        self.all_off()
+        if not self._gpio:
+            print("[SIM] test relais HIGH/LOW")
+            return
         for name, label in RELAY_NAMES:
-            print(f"--- {label} ON ---")
-            self._set(name, True)
+            pin = self._pins[name]
+            dev = self._relays[name]
+            print(f"\n=== {label}  {describe(pin)} ===")
+            print("  HIGH 3,3 V — 2 s  (LED IN ?)")
+            dev.on()
             time.sleep(hold_s)
-            print(f"--- {label} OFF ---")
-            self._set(name, False)
+            print("  LOW 0 V — 2 s  (LED IN ?)")
+            dev.off()
             time.sleep(hold_s)
         self.all_off()
 

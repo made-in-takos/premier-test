@@ -3,7 +3,9 @@
 Document de câblage pour le projet **Carte**  
 Compte GitHub : [made-in-takos/Carte](https://github.com/made-in-takos/Carte)
 
-Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
+Les numéros du code sont **BCM**. Le header 40 broches a d’autres numéros (colonne « pin physique »).
+
+> **Piège :** BCM 18 (servo) = **pin physique 12**. La pin physique **18** est BCM 24 (relais pompe carte).
 
 ---
 
@@ -37,23 +39,23 @@ Toutes les broches sont en numérotation **BCM** (Broadcom), pas BOARD.
 
 ## Tableau des broches GPIO
 
-| GPIO (BCM) | Fonction | Connecté à |
-|------------|----------|------------|
-| **17** | ULN2003 IN1 | Shield ULN2003 — bobine 1 (Arduino Mega 33) |
-| **27** | ULN2003 IN2 | Shield ULN2003 — bobine 2 |
-| **22** | ULN2003 IN3 | Shield ULN2003 — bobine 3 (Arduino Mega 31) |
-| **14** | ULN2003 IN4 | Shield ULN2003 — bobine 4 (Arduino Mega 27) — UART TX |
-| **23** | HOME | Capteur point zéro (contact → GND) |
-| **18** | SERVO | Signal PWM servomoteur (fil orange/jaune) |
-| **24** | RELAIS 1 | Pompe 1 — circuit ventouse carte |
-| **25** | RELAIS 2 | Électrovanne 1 — circuit ventouse carte |
-| **5** | RELAIS 3 | Pompe 2 — circuit vérin vertical |
-| **6** | RELAIS 4 | Électrovanne 2 — circuit vérin vertical |
-| **7** | LCD RS | Afficheur HD44780 (Register Select) |
-| **8** | LCD E | Afficheur HD44780 (Enable) |
-| **9–11, 16** | LCD D4–D7 | Afficheur HD44780 data (4 bits) |
-| **12, 13, 19, 26** | KEYPAD ROWS | Lignes du pavé 4×4 |
-| **20, 21, 4, 15** | KEYPAD COLS | Colonnes du pavé 4×4 |
+| GPIO (BCM) | Pin physique | Fonction | Connecté à |
+|------------|--------------|----------|------------|
+| **17** | **11** | ULN2003 IN1 | Shield ULN2003 — bobine 1 (**marche**) |
+| **27** | 13 | ULN2003 IN2 | Shield ULN2003 — bobine 2 |
+| **22** | 15 | ULN2003 IN3 | Shield ULN2003 — bobine 3 |
+| **14** | 8 | ULN2003 IN4 | Shield ULN2003 — bobine 4 — UART TX |
+| **23** | 16 | HOME | Capteur point zéro (contact → GND) |
+| **18** | **12** | SERVO | Signal (orange/jaune) — **à côté du stepper IN1** |
+| **24** | **18** | RELAIS 1 | Pompe 1 — circuit ventouse carte |
+| **25** | 22 | RELAIS 2 | Électrovanne 1 — circuit ventouse carte |
+| **5** | 29 | RELAIS 3 | Pompe 2 — circuit vérin vertical |
+| **6** | 31 | RELAIS 4 | Électrovanne 2 — circuit vérin vertical |
+| **7** | 26 | LCD RS | Afficheur HD44780 (Register Select) |
+| **8** | 24 | LCD E | Afficheur HD44780 (Enable) |
+| **9–11, 16** | 21, 19, 23, 36 | LCD D4–D7 | Afficheur HD44780 data (4 bits) |
+| **12, 13, 19, 26** | 32, 33, 35, 37 | KEYPAD ROWS | Lignes du pavé 4×4 |
+| **20, 21, 4, 15** | 38, 40, 7, 10 | KEYPAD COLS | Colonnes du pavé 4×4 |
 
 Broches communes :
 - **5V** → ULN2003 (+), servomoteur et LCD (VCC / LED A via résistance)
@@ -134,9 +136,10 @@ GND commun  ────────────► Fil − (marron / noir)  ←
 ```
 
 > **Piège de numérotation :** GPIO 18 = **pin physique 12** du header 40 broches.  
-> La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).
+> La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).  
+> Le fil orange du servo se branche **à côté** du fil ULN2003 IN1 (pin 11), pas sur la pin 18.
 
-Sur Raspberry Pi 5, pigpio n’existe pas. Le code utilise `lgpio.tx_pwm` (50 Hz), pas `gpiozero.AngularServo`.
+Servo et relais utilisent le **même driver gpiozero** que le stepper qui marche (`DigitalOutputDevice`).
 
 ### Test
 
@@ -157,43 +160,66 @@ Comme sur l’Arduino, on ne règle que les **angles** :
 
 Si le bras se lève dans le mauvais sens, inverse 50 et 130.
 
-Si le servo ne bouge pas :
-1. Masse **commune** Pi ↔ alim 5 V du servo
-2. Alim 5 V **dédiée**
-3. Signal sur **pin physique 12** (BCM 18), pas la pin 18 BOARD
+Si le servo ne bouge pas (alim 5 V OK, pas de mouvement) :
+1. Signal sur **pin physique 12** (BCM 18), **pas** la pin 18 BOARD
+2. Masse **commune** Pi ↔ alim 5 V du servo
+3. Alim 5 V **dédiée** (pas seulement le 5 V du Pi)
+4. Diagnostic : `python test_hardware.py blink --bcm 18` — le fil orange doit voir du 3,3 V pulsé
 
 ---
 
 ## 3. Module relais (4 canaux)
 
-### Principe
-Sur l’Arduino, un relais s’allumait avec `digitalWrite(pin, HIGH)`.
-Le Python fait pareil : `RELAY_ACTIVE_LOW = False`.
+### Principe — alim 5 V ≠ signal IN
 
-Si tu as un module « trigger LOW » (souvent vendu pour Raspberry Pi) et que
-rien ne clique, passe à `RELAY_ACTIVE_LOW = True` dans `config.py`.
+Le module peut être **alimenté** (LED power, relais sous tension) sans jamais
+recevoir le signal d’ouverture/fermeture sur **IN**. C’est le cas typique
+Arduino → Pi :
 
-Le GPIO du Pi est en **3,3 V**. Un module prévu pour du 5 V en trigger HIGH
-peut ne pas enclencher : dans ce cas utilise le trigger LOW, ou un module 3,3 V.
+| | Arduino Mega | Raspberry Pi |
+|---|---|---|
+| HIGH | **5 V** | **3,3 V** |
+| LOW | 0 V | 0 V |
+
+Un module 5 V « trigger HIGH » allume souvent l’optocoupleur seulement à 5 V :
+le 3,3 V du Pi ne fait **rien** sur IN (LED IN éteinte, pas de clic).
+
+Sur Pi on commande donc par défaut en **trigger LOW** (`RELAY_ACTIVE_LOW = True`) :
+GPIO à **0 V** = ON. Les modules 5 V optocoupleur comprennent ce niveau.
 
 ### Schéma module relais
 
 ```
 Raspberry Pi              Module relais 4 canaux
 ─────────────             ──────────────────────
-GPIO 24 ─────────────────► IN1  → Pompe 1 (carte)
-GPIO 25 ─────────────────► IN2  → Électrovanne 1 (carte)
-GPIO 5  ─────────────────► IN3  → Pompe 2 (vérin)
-GPIO 6  ─────────────────► IN4  → Électrovanne 2 (vérin)
-5V ──────────────────────► VCC (et JD-VCC si le cavalier est en place)
-GND ─────────────────────► GND
+GPIO 24 (pin physique 18) ► IN1  → Pompe 1 (carte)
+GPIO 25 (pin physique 22) ► IN2  → Électrovanne 1 (carte)
+GPIO 5  (pin physique 29) ► IN3  → Pompe 2 (vérin)
+GPIO 6  (pin physique 31) ► IN4  → Électrovanne 2 (vérin)
+5 V ─────────────────────► VCC **et** JD-VCC (cavalier en place, ou fil 5 V)
+GND ─────────────────────► GND  ← masse commune avec le Pi, obligatoire
 ```
 
 Test :
 ```bash
 python test_hardware.py relays
 ```
-Chaque relais : ON 2 s, OFF 2 s (tu dois entendre 4 clics).
+Chaque IN : **HIGH 3,3 V pendant 2 s**, puis **LOW 0 V pendant 2 s**.
+Regarde les **LED IN** (pas la LED d’alim) :
+
+- LED allumée seulement en LOW → trigger LOW, c’est déjà le réglage
+- LED allumée seulement en HIGH → `RELAY_ACTIVE_LOW = False` dans `config.py`
+- LED jamais allumée → mauvais pin, ou IN trop « haut » pour 3,3 V
+
+Test jumper (hors logiciel) : VCC/JD-VCC en 5 V, GND commun, puis un fil entre
+**IN1 et GND**. Si la LED IN s’allume et le relais clique, le module est
+trigger LOW et le Pi doit envoyer du 0 V (déjà le cas). Si ça ne clique qu’en
+reliant IN1 au **3,3 V**, passe `RELAY_ACTIVE_LOW = False`. Si ni GND ni 3,3 V
+n’allument IN, le module attend du **5 V** : il faut un transistor / module 3,3 V.
+
+```bash
+python test_hardware.py blink --bcm 24   # pompe carte, pin physique 18
+```
 
 > **Ne jamais** alimenter pompes ou vérin depuis les broches 5V du Pi.
 
@@ -317,13 +343,14 @@ python check_camera.py
 cd ~/Carte
 source venv/bin/activate
 
-python test_hardware.py status      # vérifier config GPIO
-python test_hardware.py pins        # clignotement relais + capteur zéro
+python test_hardware.py status      # BCM + pin physique
+python test_hardware.py pins        # clignotement HIGH/LOW (stepper, servo, relais)
 python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
+python test_hardware.py blink --bcm 24              # un GPIO, même driver que le stepper
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
 python test_hardware.py servo-sweep                 # monter, descendre, monter, descendre
-python test_hardware.py relays                      # 4 relais ON/OFF 2 s
+python test_hardware.py relays                      # chaque IN : HIGH 2 s puis LOW 2 s
 python test_hardware.py lift-down                   # vérin
 python test_hardware.py pick-cycle                  # cycle mécanique complet
 python test_hardware.py lcd                         # message LCD 16×2
@@ -407,8 +434,8 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Sens de rotation inversé | `DIR_INVERT = True` dans `config.py` |
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
-| Relais ne cliquent pas | `python test_hardware.py relays` ; `RELAY_ACTIVE_LOW = True` si module trigger LOW ; 5 V VCC + GND |
-| Servo ne bouge pas / reste en bas | `servo-sweep` ; GND commun ; inverser `SERVO_ANGLE_UP` / `DOWN` si le sens est faux |
+| Relais alimentés mais pas de clic / LED IN éteinte | Alim 5 V ≠ signal IN. `python test_hardware.py relays` (HIGH puis LOW). Pin physique 18 = BCM 24, pas BCM 18. Trigger LOW déjà activé. Si LED IN ne s’allume jamais : jumper IN→GND, sinon transistor / module 3,3 V |
+| Servo alimenté mais ne bouge pas | Signal sur **pin physique 12** (BCM 18), à côté du stepper IN1 pin 11 — **pas** la pin 18. `blink --bcm 18` puis `servo-sweep`. GND commun + 5 V dédié |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |
 | Ventouse ne prend pas | Timings `VACUUM_ON_DELAY_S`, fuite pneumatique |
@@ -422,6 +449,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Fichier | Contenu |
 |---------|---------|
 | `config.py` | Broches GPIO, angles, timings, LCD / pavé |
+| `gpio_out.py` | BCM ↔ pin physique, sorties gpiozero (comme le stepper) |
 | `keypad.py` | Pavé 4×4 (gpiozero) |
 | `lcd_display.py` | LCD HD44780 16×2 4 bits |
 | `menu.py` | Menus type de jeu / tri / nombre de cartes |

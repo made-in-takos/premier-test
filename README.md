@@ -44,7 +44,10 @@ python main.py --skip-menu --skip-test --deck playing --sort Color --count 52
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m pytest tests
-python test_hardware.py servo-sweep
+python test_hardware.py status
+python test_hardware.py relays          # HIGH 2 s puis LOW 2 s — regarder les LED IN
+python test_hardware.py blink --bcm 24  # pompe carte = pin physique 18
+python test_hardware.py servo-sweep     # signal servo = pin physique 12 (BCM 18)
 python test_hardware.py lcd
 python test_hardware.py keypad
 ```

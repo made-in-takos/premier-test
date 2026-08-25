@@ -15,6 +15,7 @@ Usage :
     python test_hardware.py card-pick
     python test_hardware.py card-release
     python test_hardware.py relays
+    python test_hardware.py blink --bcm 24
     python test_hardware.py pick-cycle
     python test_hardware.py lcd
     python test_hardware.py keypad
@@ -33,23 +34,25 @@ if not config.IS_RASPBERRY:
 
 def cmd_status():
     from gpiozero import Button
+    from gpio_out import describe
 
-    print("=== GPIO (BCM) ===")
-    print(f"  ULN2003 IN1  : {config.GPIO_STEPPER_IN1}")
-    print(f"  ULN2003 IN2  : {config.GPIO_STEPPER_IN2}")
-    print(f"  ULN2003 IN3  : {config.GPIO_STEPPER_IN3}")
-    print(f"  ULN2003 IN4  : {config.GPIO_STEPPER_IN4}")
-    print(f"  HOME         : {config.GPIO_HOME_SWITCH}")
-    print(f"  SERVO        : {config.GPIO_SERVO_TILT}  (pin physique 12, pas la pin 18 BOARD)")
-    print(f"  POMPE_CARTE  : {config.GPIO_RELAY_PUMP_CARD}  (circuit 1 — ventouse)")
-    print(f"  EV_CARTE     : {config.GPIO_RELAY_VALVE_CARD}")
-    print(f"  POMPE_VERIN  : {config.GPIO_RELAY_PUMP_LIFT}  (circuit 2 — étage)")
-    print(f"  EV_VERIN     : {config.GPIO_RELAY_VALVE_LIFT}")
+    print("=== GPIO : BCM = pin physique du header 40 broches ===")
+    print("  (le stepper qui marche est sur pin 11 ; le servo doit être sur pin 12)")
+    print(f"  ULN2003 IN1  : {describe(config.GPIO_STEPPER_IN1)}")
+    print(f"  ULN2003 IN2  : {describe(config.GPIO_STEPPER_IN2)}")
+    print(f"  ULN2003 IN3  : {describe(config.GPIO_STEPPER_IN3)}")
+    print(f"  ULN2003 IN4  : {describe(config.GPIO_STEPPER_IN4)}")
+    print(f"  HOME         : {describe(config.GPIO_HOME_SWITCH)}")
+    print(f"  SERVO        : {describe(config.GPIO_SERVO_TILT)}  ← pas la pin 18 BOARD")
+    print(f"  POMPE_CARTE  : {describe(config.GPIO_RELAY_PUMP_CARD)}")
+    print(f"  EV_CARTE     : {describe(config.GPIO_RELAY_VALVE_CARD)}")
+    print(f"  POMPE_VERIN  : {describe(config.GPIO_RELAY_PUMP_LIFT)}")
+    print(f"  EV_VERIN     : {describe(config.GPIO_RELAY_VALVE_LIFT)}")
     print(f"  LCD RS/E/D4-7: {config.LCD_RS}/{config.LCD_E}/{config.LCD_DATA_PINS}")
     print(f"  KEYPAD ROWS  : {config.KEYPAD_ROW_PINS}")
     print(f"  KEYPAD COLS  : {config.KEYPAD_COL_PINS}")
     print(f"\n  Servo UP={config.SERVO_ANGLE_UP}°  DOWN={config.SERVO_ANGLE_DOWN}°")
-    print(f"  Relais ON = GPIO {'LOW' if config.RELAY_ACTIVE_LOW else 'HIGH'}")
+    print(f"  Relais ON = GPIO {'LOW 0 V' if config.RELAY_ACTIVE_LOW else 'HIGH 3,3 V'}")
     print(f"  Rotation {config.MIN_ANGLE}° à {config.MAX_ANGLE}°")
     print(f"  28BYJ-48 / ULN2003 : {config.STEPS_PER_REV} pas/tour")
 
@@ -60,26 +63,28 @@ def cmd_status():
 
 
 def cmd_pins():
-    from gpiozero import DigitalOutputDevice, Button
+    from gpiozero import Button
+    from gpio_out import describe, digital_output
 
     outputs = {
-        "ULN2003_IN1": (config.GPIO_STEPPER_IN1, False),
-        "ULN2003_IN2": (config.GPIO_STEPPER_IN2, False),
-        "ULN2003_IN3": (config.GPIO_STEPPER_IN3, False),
-        "ULN2003_IN4": (config.GPIO_STEPPER_IN4, False),
-        "POMPE_CARTE": (config.GPIO_RELAY_PUMP_CARD, config.RELAY_ACTIVE_LOW),
-        "EV_CARTE": (config.GPIO_RELAY_VALVE_CARD, config.RELAY_ACTIVE_LOW),
-        "POMPE_VERIN": (config.GPIO_RELAY_PUMP_LIFT, config.RELAY_ACTIVE_LOW),
-        "EV_VERIN": (config.GPIO_RELAY_VALVE_LIFT, config.RELAY_ACTIVE_LOW),
+        "ULN2003_IN1": config.GPIO_STEPPER_IN1,
+        "ULN2003_IN2": config.GPIO_STEPPER_IN2,
+        "ULN2003_IN3": config.GPIO_STEPPER_IN3,
+        "ULN2003_IN4": config.GPIO_STEPPER_IN4,
+        "SERVO": config.GPIO_SERVO_TILT,
+        "POMPE_CARTE": config.GPIO_RELAY_PUMP_CARD,
+        "EV_CARTE": config.GPIO_RELAY_VALVE_CARD,
+        "POMPE_VERIN": config.GPIO_RELAY_PUMP_LIFT,
+        "EV_VERIN": config.GPIO_RELAY_VALVE_LIFT,
     }
     devices = {}
 
-    print("=== Clignotement GPIO (5x chacun) ===")
+    print("=== Clignotement GPIO HIGH/LOW (5× chacun, même driver que le stepper) ===")
     try:
-        for name, (pin, active_low) in outputs.items():
-            dev = DigitalOutputDevice(pin, active_high=not active_low, initial_value=False)
+        for name, pin in outputs.items():
+            dev = digital_output(pin, initial_high=False)
             devices[name] = dev
-            print(f"  {name} (GPIO {pin})…")
+            print(f"  {name}  {describe(pin)}…")
             for _ in range(5):
                 dev.on()
                 time.sleep(0.25)
@@ -181,8 +186,11 @@ def cmd_servo_calibrate():
 
 
 def cmd_servo_sweep():
+    from gpio_out import describe
     from servo_controller import ServoController
 
+    print(f"Signal servo → {describe(config.GPIO_SERVO_TILT)}")
+    print("Le fil orange doit être sur la pin physique 12 (à côté du stepper IN1 pin 11).")
     servo = ServoController()
     try:
         print("monter, descendre, monter, descendre")
@@ -239,16 +247,24 @@ def cmd_card_release():
 def cmd_relays():
     from pneumatic import PneumaticController
 
-    print(
-        "Test relais (comme Arduino) — ON = "
-        f"GPIO {'LOW' if config.RELAY_ACTIVE_LOW else 'HIGH'}"
-    )
-    print("Si rien ne clique : mets RELAY_ACTIVE_LOW = True dans config.py")
+    print("Chaque entrée IN : HIGH 3,3 V pendant 2 s, puis LOW 0 V pendant 2 s.")
+    print("Regarde les LED IN du module (pas seulement le 5 V d'alimentation).")
+    print("  LED allumée seulement en LOW  → trigger LOW (déjà RELAY_ACTIVE_LOW = True)")
+    print("  LED allumée seulement en HIGH → mets RELAY_ACTIVE_LOW = False dans config.py")
+    print("  LED jamais allumée            → mauvais pin physique, ou 3,3 V trop faible")
     pneu = PneumaticController()
     try:
         pneu.test_each()
     finally:
         pneu.cleanup()
+
+
+def cmd_blink(bcm):
+    from gpio_out import blink, describe
+
+    print(f"Même driver gpiozero que le stepper qui marche — {describe(bcm)}")
+    print("Si rien ne bouge : ce n'est pas le pin physique indiqué, ou le 3,3 V ne passe pas.")
+    blink(bcm)
 
 
 def cmd_pick_cycle():
@@ -354,6 +370,14 @@ def main():
     sub.add_parser("lcd")
     sub.add_parser("keypad")
 
+    p_blink = sub.add_parser("blink")
+    p_blink.add_argument(
+        "--bcm",
+        type=int,
+        default=24,
+        help="GPIO BCM à faire clignoter (24 = pompe carte / pin physique 18)",
+    )
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -377,6 +401,7 @@ def main():
         "servo": lambda: cmd_servo(args.angle),
         "lcd": cmd_lcd,
         "keypad": cmd_keypad,
+        "blink": lambda: cmd_blink(args.bcm),
     }
     commands[args.command]()
 

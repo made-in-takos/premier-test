@@ -53,9 +53,9 @@ GPIO_RELAY_VALVE_CARD = 25
 GPIO_RELAY_PUMP_LIFT = 5
 GPIO_RELAY_VALVE_LIFT = 6
 
-# Arduino : digitalWrite(pin, HIGH) = relais ON. False = même comportement.
-# Passe à True seulement si ton module est « trigger LOW » (très courant en 5 V).
-RELAY_ACTIVE_LOW = False
+# Pi 3,3 V : les modules 5 V s'enclenchent en général si IN = 0 V (trigger LOW).
+# L'Arduino envoyait du 5 V HIGH — ce n'est pas reproductible tel quel sur le Pi.
+RELAY_ACTIVE_LOW = True
 
 # ---------------------------------------------------------------------------
 # GPIO — servomoteur (inclinaison du bras)
