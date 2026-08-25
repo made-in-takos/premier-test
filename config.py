@@ -187,7 +187,6 @@ DECK_MAGIC = "magic"
 
 DEFAULT_DECK = DECK_MAGIC
 DEFAULT_SORT_MODE = "Color"
-DEFAULT_CARD_COUNT = 0
 MAX_CARD_COUNT = 999
 
 # Pas d'angle du tri Magic (FCTTriParCouleur)

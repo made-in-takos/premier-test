@@ -13,12 +13,6 @@ from sort_tables import (
 )
 
 
-def _zero_delays():
-    config.LCD_MESSAGE_DELAY_S = 0
-    config.LCD_CONFIRM_DELAY_S = 0
-    config.HARDWARE_TEST_HOLD_S = 0
-
-
 def test_magic_color_angles_match_arduino():
     step = 18
     assert magic_color_angle("Rouge") == step * -1
@@ -65,7 +59,6 @@ def test_deck_and_sort_keys():
 
 
 def test_menu_full_flow_magic():
-    _zero_delays()
     keypad = Keypad(simulate=True)
     lcd = LcdDisplay(simulate=True)
     ui = SorterUI(keypad, lcd)
@@ -83,7 +76,6 @@ def test_menu_full_flow_magic():
 
 
 def test_menu_playing_and_star_clears_count():
-    _zero_delays()
     keypad = Keypad(simulate=True)
     lcd = LcdDisplay(simulate=True)
     ui = SorterUI(keypad, lcd)
@@ -99,7 +91,6 @@ def test_menu_playing_and_star_clears_count():
 
 
 def test_menu_pokemon_default_count_on_hash():
-    _zero_delays()
     keypad = Keypad(simulate=True)
     lcd = LcdDisplay(simulate=True)
     ui = SorterUI(keypad, lcd)
@@ -111,7 +102,6 @@ def test_menu_pokemon_default_count_on_hash():
 
 
 def test_invalid_sort_then_valid():
-    _zero_delays()
     keypad = Keypad(simulate=True)
     lcd = LcdDisplay(simulate=True)
     ui = SorterUI(keypad, lcd)

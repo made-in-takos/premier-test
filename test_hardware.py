@@ -12,8 +12,8 @@ Usage :
     python test_hardware.py servo --angle 45
     python test_hardware.py servo-sweep
     python test_hardware.py servo-calibrate
-    python test_hardware.py pneumatic-pick
-    python test_hardware.py pneumatic-release
+    python test_hardware.py card-pick
+    python test_hardware.py card-release
     python test_hardware.py pick-cycle
     python test_hardware.py lcd
     python test_hardware.py keypad

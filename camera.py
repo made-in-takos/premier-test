@@ -3,7 +3,6 @@ Capture d'images depuis la caméra Raspberry Pi (picamera2) ou webcam USB.
 """
 
 import glob
-import os
 import sys
 
 import config
