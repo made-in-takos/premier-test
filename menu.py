@@ -117,26 +117,10 @@ class SorterUI:
         self.lcd.message("En test", "# pour menu")
 
     def _test_relays(self):
-        self.lcd.message("Test relais", "3")
-        hold = config.HARDWARE_TEST_HOLD_S
+        self.lcd.message("Test relais", "ON / OFF")
         if not self.pneumatic:
-            _sleep(hold)
             return
-        self.pneumatic._set("pump_card", True)
-        _sleep(hold)
-        self.pneumatic._set("pump_card", False)
-        _sleep(hold)
-        self.pneumatic._set("valve_card", True)
-        _sleep(hold)
-        self.pneumatic._set("valve_card", False)
-        _sleep(hold)
-        self.pneumatic._set("pump_lift", True)
-        _sleep(hold)
-        self.pneumatic._set("pump_lift", False)
-        _sleep(hold)
-        self.pneumatic._set("valve_lift", True)
-        _sleep(hold)
-        self.pneumatic._set("valve_lift", False)
+        self.pneumatic.test_each()
         self.lcd.message("En test", "# pour menu")
 
     # --- Nouveau : type de cartes ---

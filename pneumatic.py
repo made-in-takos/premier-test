@@ -1,51 +1,62 @@
 """
-Contrôle pneumatique — 2 circuits indépendants :
+Relais pneumatiques — même logique que le sketch Arduino.
 
-  Circuit 1 (Pompe 1 + EV 1) : ventouse carte
-    - pick()    → aspiration
-    - release() → libération
-
-  Circuit 2 (Pompe 2 + EV 2) : vérin vertical (étage)
-    - down()    → descendre d'un étage
-    - up()      → monter d'un étage
+    digitalWrite(PompeVentousePin, HIGH);  # ON
+    digitalWrite(PompeVentousePin, LOW);   # OFF
 """
 
 import time
 
 import config
 
+RELAY_NAMES = (
+    ("pump_card", "Pompe 1 carte"),
+    ("valve_card", "EV 1 carte"),
+    ("pump_lift", "Pompe 2 verin"),
+    ("valve_lift", "EV 2 verin"),
+)
+
+
+def gpio_high_for(on):
+    """Niveau GPIO (True = 3,3 V) pour allumer ou éteindre un relais."""
+    return (not on) if config.RELAY_ACTIVE_LOW else bool(on)
+
 
 class PneumaticController:
     def __init__(self):
         self._relays = {}
+        self._pins = {
+            "pump_card": config.GPIO_RELAY_PUMP_CARD,
+            "valve_card": config.GPIO_RELAY_VALVE_CARD,
+            "pump_lift": config.GPIO_RELAY_PUMP_LIFT,
+            "valve_lift": config.GPIO_RELAY_VALVE_LIFT,
+        }
         self._gpio = config.IS_RASPBERRY
-        self._lift_level = 0  # 0 = haut (transport), >0 = étages descendus
+        self._lift_level = 0
 
         if self._gpio:
             from gpiozero import DigitalOutputDevice
 
-            active_high = not config.RELAY_ACTIVE_LOW
-            pins = {
-                "pump_card": config.GPIO_RELAY_PUMP_CARD,
-                "valve_card": config.GPIO_RELAY_VALVE_CARD,
-                "pump_lift": config.GPIO_RELAY_PUMP_LIFT,
-                "valve_lift": config.GPIO_RELAY_VALVE_LIFT,
-            }
-            for name, pin in pins.items():
+            for name, pin in self._pins.items():
+                # active_high=True : on() = HIGH, comme digitalWrite(HIGH)
                 self._relays[name] = DigitalOutputDevice(
-                    pin, active_high=active_high, initial_value=False
+                    pin, active_high=True, initial_value=gpio_high_for(False)
                 )
+            polarite = "LOW" if config.RELAY_ACTIVE_LOW else "HIGH"
+            print(f"Relais : ON = GPIO {polarite} (comme Arduino HIGH si HIGH)")
         else:
-            print("[SIMULATION] Pneumatique — 2 circuits (carte + vérin)")
+            print("[SIMULATION] Relais")
 
-    def _set(self, name, state):
+        self.all_off()
+
+    def _set(self, name, on):
+        high = gpio_high_for(on)
         if self._gpio:
-            if state:
+            if high:
                 self._relays[name].on()
             else:
                 self._relays[name].off()
-        else:
-            print(f"  [SIM] {name} → {'ON' if state else 'OFF'}")
+        print(f"  {name} GPIO {self._pins[name]} → {'HIGH' if high else 'LOW'} ({'ON' if on else 'OFF'})")
 
     def _card_off(self):
         self._set("pump_card", False)
@@ -59,37 +70,28 @@ class PneumaticController:
         self._card_off()
         self._lift_off()
 
-    # --- Circuit 1 : ventouse ---
-
     def pick(self):
-        """Aspire la carte (Pompe 1 + EV 1 ON)."""
         print("  Ventouse : aspiration…")
         self._set("valve_card", True)
         self._set("pump_card", True)
         time.sleep(config.VACUUM_ON_DELAY_S)
 
     def release(self):
-        """Libère la carte (Pompe 1 + EV 1 OFF)."""
         print("  Ventouse : libération…")
         self._card_off()
         time.sleep(config.VACUUM_OFF_DELAY_S)
 
-    # --- Circuit 2 : vérin vertical ---
-
     def down(self):
-        """Descend le vérin d'un étage (Pompe 2 + EV 2)."""
-        print("  Vérin : descente d'un étage…")
+        print("  Vérin : descente…")
         self._set("pump_lift", config.LIFT_DOWN_PUMP_ON)
         self._set("valve_lift", config.LIFT_DOWN_VALVE_ON)
         time.sleep(config.LIFT_DOWN_HOLD_S)
         self._lift_off()
         self._lift_level += 1
         time.sleep(config.LIFT_SETTLE_S)
-        print(f"  Vérin : étage {self._lift_level}")
 
     def up(self):
-        """Remonte le vérin d'un étage."""
-        print("  Vérin : montée d'un étage…")
+        print("  Vérin : montée…")
         if config.LIFT_UP_HOLD_S > 0:
             self._set("pump_lift", config.LIFT_UP_PUMP_ON)
             self._set("valve_lift", config.LIFT_UP_VALVE_ON)
@@ -97,21 +99,30 @@ class PneumaticController:
         self._lift_off()
         self._lift_level = max(0, self._lift_level - 1)
         time.sleep(config.LIFT_SETTLE_S)
-        print(f"  Vérin : étage {self._lift_level}")
 
     def to_pickup_height(self):
-        """Position basse — niveau du tas de cartes."""
         if self._lift_level == 0:
             self.down()
 
     def to_transport_height(self):
-        """Position haute — dégagement pour rotation du bras."""
         while self._lift_level > 0:
             self.up()
 
     def to_deposit_height(self):
-        """Position basse — dépôt de la carte."""
         self.to_pickup_height()
+
+    def test_each(self, hold_s=None):
+        """Comme le case '3' Arduino : chaque relais ON 2 s, OFF 2 s."""
+        hold_s = config.HARDWARE_TEST_HOLD_S if hold_s is None else hold_s
+        self.all_off()
+        for name, label in RELAY_NAMES:
+            print(f"--- {label} ON ---")
+            self._set(name, True)
+            time.sleep(hold_s)
+            print(f"--- {label} OFF ---")
+            self._set(name, False)
+            time.sleep(hold_s)
+        self.all_off()
 
     @property
     def lift_level(self):
@@ -121,3 +132,4 @@ class PneumaticController:
         self.all_off()
         for relay in self._relays.values():
             relay.close()
+        self._relays = {}

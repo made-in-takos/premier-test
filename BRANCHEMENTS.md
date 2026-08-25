@@ -167,25 +167,35 @@ Si le servo ne bouge pas :
 ## 3. Module relais (4 canaux)
 
 ### Principe
-La plupart des modules relais 5 V pour Pi sont **actifs bas** : le relais s'active quand le GPIO est à **LOW**.
+Sur l’Arduino, un relais s’allumait avec `digitalWrite(pin, HIGH)`.
+Le Python fait pareil : `RELAY_ACTIVE_LOW = False`.
 
-Paramètre dans `config.py` : `RELAY_ACTIVE_LOW = True`
+Si tu as un module « trigger LOW » (souvent vendu pour Raspberry Pi) et que
+rien ne clique, passe à `RELAY_ACTIVE_LOW = True` dans `config.py`.
+
+Le GPIO du Pi est en **3,3 V**. Un module prévu pour du 5 V en trigger HIGH
+peut ne pas enclencher : dans ce cas utilise le trigger LOW, ou un module 3,3 V.
 
 ### Schéma module relais
 
 ```
 Raspberry Pi              Module relais 4 canaux
 ─────────────             ──────────────────────
-GPIO 24 ─────────────────► IN1  → COM/NO → Pompe 1 (carte)
-GPIO 25 ─────────────────► IN2  → COM/NO → Électrovanne 1 (carte)
-GPIO 5  ─────────────────► IN3  → COM/NO → Pompe 2 (vérin)
-GPIO 6  ─────────────────► IN4  → COM/NO → Électrovanne 2 (vérin)
-5V ──────────────────────► VCC
+GPIO 24 ─────────────────► IN1  → Pompe 1 (carte)
+GPIO 25 ─────────────────► IN2  → Électrovanne 1 (carte)
+GPIO 5  ─────────────────► IN3  → Pompe 2 (vérin)
+GPIO 6  ─────────────────► IN4  → Électrovanne 2 (vérin)
+5V ──────────────────────► VCC (et JD-VCC si le cavalier est en place)
 GND ─────────────────────► GND
 ```
 
-> **Ne jamais** alimenter pompes ou vérin depuis les broches 5V du Pi.  
-> Les relais coupent / établissent un circuit alimenté **séparément** (12 V ou 24 V selon ton pneumatique).
+Test :
+```bash
+python test_hardware.py relays
+```
+Chaque relais : ON 2 s, OFF 2 s (tu dois entendre 4 clics).
+
+> **Ne jamais** alimenter pompes ou vérin depuis les broches 5V du Pi.
 
 ---
 
@@ -313,7 +323,7 @@ python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
 python test_hardware.py servo-sweep                 # monter, descendre, monter, descendre
-python test_hardware.py card-pick                   # ventouse
+python test_hardware.py relays                      # 4 relais ON/OFF 2 s
 python test_hardware.py lift-down                   # vérin
 python test_hardware.py pick-cycle                  # cycle mécanique complet
 python test_hardware.py lcd                         # message LCD 16×2
@@ -397,7 +407,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Sens de rotation inversé | `DIR_INVERT = True` dans `config.py` |
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
-| Relais ne switchent pas | `RELAY_ACTIVE_LOW`, alim 5 V module relais |
+| Relais ne cliquent pas | `python test_hardware.py relays` ; `RELAY_ACTIVE_LOW = True` si module trigger LOW ; 5 V VCC + GND |
 | Servo ne bouge pas / reste en bas | `servo-sweep` ; GND commun ; inverser `SERVO_ANGLE_UP` / `DOWN` si le sens est faux |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |

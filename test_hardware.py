@@ -14,6 +14,7 @@ Usage :
     python test_hardware.py servo-calibrate
     python test_hardware.py card-pick
     python test_hardware.py card-release
+    python test_hardware.py relays
     python test_hardware.py pick-cycle
     python test_hardware.py lcd
     python test_hardware.py keypad
@@ -48,6 +49,7 @@ def cmd_status():
     print(f"  KEYPAD ROWS  : {config.KEYPAD_ROW_PINS}")
     print(f"  KEYPAD COLS  : {config.KEYPAD_COL_PINS}")
     print(f"\n  Servo UP={config.SERVO_ANGLE_UP}°  DOWN={config.SERVO_ANGLE_DOWN}°")
+    print(f"  Relais ON = GPIO {'LOW' if config.RELAY_ACTIVE_LOW else 'HIGH'}")
     print(f"  Rotation {config.MIN_ANGLE}° à {config.MAX_ANGLE}°")
     print(f"  28BYJ-48 / ULN2003 : {config.STEPS_PER_REV} pas/tour")
 
@@ -234,6 +236,21 @@ def cmd_card_release():
         pneu.cleanup()
 
 
+def cmd_relays():
+    from pneumatic import PneumaticController
+
+    print(
+        "Test relais (comme Arduino) — ON = "
+        f"GPIO {'LOW' if config.RELAY_ACTIVE_LOW else 'HIGH'}"
+    )
+    print("Si rien ne clique : mets RELAY_ACTIVE_LOW = True dans config.py")
+    pneu = PneumaticController()
+    try:
+        pneu.test_each()
+    finally:
+        pneu.cleanup()
+
+
 def cmd_pick_cycle():
     """Test complet : rotation → descente → aspiration → remontée."""
     from arm_controller import ArmController
@@ -319,6 +336,7 @@ def main():
     sub.add_parser("servo-sweep")
     sub.add_parser("card-pick")
     sub.add_parser("card-release")
+    sub.add_parser("relays")
     sub.add_parser("lift-down")
     sub.add_parser("lift-up")
     sub.add_parser("pick-cycle")
@@ -350,6 +368,7 @@ def main():
         "servo-sweep": cmd_servo_sweep,
         "card-pick": cmd_card_pick,
         "card-release": cmd_card_release,
+        "relays": cmd_relays,
         "lift-down": cmd_lift_down,
         "lift-up": cmd_lift_up,
         "pick-cycle": cmd_pick_cycle,
