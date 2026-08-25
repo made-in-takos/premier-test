@@ -7,8 +7,8 @@ from __future__ import annotations
 import time
 
 import config
-from gpio_setup import configure_pin_factory
-from servo_math import clamp_servo_angle, servo_sweep
+from hardware.gpio_setup import configure_pin_factory
+from hardware.servo_math import clamp_servo_angle, servo_sweep
 
 
 class ServoController:

@@ -13,7 +13,7 @@ Pneumatique — 2 circuits independants :
 import time
 
 import config
-from gpio_setup import configure_pin_factory
+from hardware.gpio_setup import configure_pin_factory
 
 
 class PneumaticController:

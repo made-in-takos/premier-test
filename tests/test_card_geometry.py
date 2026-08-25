@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1] / "python"
+ROOT = Path(__file__).resolve().parents[1] / "vision"
 sys.path.insert(0, str(ROOT))
 
 from card_geometry import find_card_candidates, synthetic_card_frame

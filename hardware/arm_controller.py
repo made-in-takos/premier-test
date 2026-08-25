@@ -5,7 +5,7 @@ Controle du bras rotatif (moteur pas-a-pas + capteur zero).
 import time
 
 import config
-from gpio_setup import configure_pin_factory
+from hardware.gpio_setup import configure_pin_factory
 
 
 class ArmController:

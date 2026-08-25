@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""
-Tests materiel GPIO.
+"""Tests materiel GPIO.
 
-    python test_hardware.py status
-    python test_hardware.py pins
-    python test_hardware.py servo-sweep
-    python test_hardware.py servo --angle 130
-    python test_hardware.py servo-calibrate
-    python test_hardware.py card-pick
+    python scripts/test_hardware.py status
+    python scripts/test_hardware.py pins
+    python scripts/test_hardware.py servo-sweep
+    python scripts/test_hardware.py servo --angle 130
+    python scripts/test_hardware.py servo-calibrate
+    python scripts/test_hardware.py card-pick
 """
+
+from __future__ import annotations
 
 import argparse
 import sys
 import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import config
-from gpio_setup import configure_pin_factory
+from hardware.gpio_setup import configure_pin_factory
 
 if not config.IS_RASPBERRY:
     print("Ce script doit etre lance sur le Raspberry Pi (GPIO reels).")
@@ -87,7 +93,7 @@ def cmd_pins():
 
 
 def cmd_step(steps, direction):
-    from arm_controller import ArmController
+    from hardware.arm_controller import ArmController
 
     arm = ArmController()
     try:
@@ -102,7 +108,7 @@ def cmd_step(steps, direction):
 
 
 def cmd_home():
-    from arm_controller import ArmController
+    from hardware.arm_controller import ArmController
 
     arm = ArmController()
     try:
@@ -112,7 +118,7 @@ def cmd_home():
 
 
 def cmd_move(angle):
-    from arm_controller import ArmController
+    from hardware.arm_controller import ArmController
 
     arm = ArmController()
     try:
@@ -125,7 +131,7 @@ def cmd_move(angle):
 
 
 def cmd_scan():
-    from arm_controller import ArmController
+    from hardware.arm_controller import ArmController
 
     arm = ArmController()
     try:
@@ -140,7 +146,7 @@ def cmd_scan():
 
 
 def cmd_servo(angle):
-    from servo_controller import ServoController
+    from hardware.servo_controller import ServoController
 
     servo = ServoController()
     try:
@@ -152,7 +158,7 @@ def cmd_servo(angle):
 
 
 def cmd_servo_sweep():
-    from servo_controller import ServoController
+    from hardware.servo_controller import ServoController
 
     servo = ServoController()
     try:
@@ -165,7 +171,7 @@ def cmd_servo_sweep():
 
 
 def cmd_servo_calibrate():
-    from servo_controller import ServoController
+    from hardware.servo_controller import ServoController
 
     servo = ServoController()
     try:
@@ -180,7 +186,7 @@ def cmd_servo_calibrate():
 
 
 def cmd_lift_down():
-    from pneumatic import PneumaticController
+    from hardware.pneumatic import PneumaticController
 
     pneu = PneumaticController()
     try:
@@ -190,7 +196,7 @@ def cmd_lift_down():
 
 
 def cmd_lift_up():
-    from pneumatic import PneumaticController
+    from hardware.pneumatic import PneumaticController
 
     pneu = PneumaticController()
     try:
@@ -200,7 +206,7 @@ def cmd_lift_up():
 
 
 def cmd_card_pick():
-    from pneumatic import PneumaticController
+    from hardware.pneumatic import PneumaticController
 
     pneu = PneumaticController()
     try:
@@ -211,7 +217,7 @@ def cmd_card_pick():
 
 
 def cmd_card_release():
-    from pneumatic import PneumaticController
+    from hardware.pneumatic import PneumaticController
 
     pneu = PneumaticController()
     try:
@@ -221,9 +227,9 @@ def cmd_card_release():
 
 
 def cmd_pick_cycle():
-    from arm_controller import ArmController
-    from pneumatic import PneumaticController
-    from servo_controller import ServoController
+    from hardware.arm_controller import ArmController
+    from hardware.pneumatic import PneumaticController
+    from hardware.servo_controller import ServoController
 
     arm = ArmController()
     servo = ServoController()

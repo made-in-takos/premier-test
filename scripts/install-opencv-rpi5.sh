@@ -116,7 +116,7 @@ if [[ "$INSTALL_MEDIAPIPE" == "1" ]]; then
 fi
 
 log "Verification"
-python "$ROOT/python/verify_install.py"
+python "$ROOT/vision/verify_install.py"
 
 printf '\nOK. Active l environnement avec:\n  source %s/bin/activate\n' "$VENV_DIR"
-printf 'Puis lance:\n  python python/detect_cards.py --camera 0\n'
+printf 'Puis lance:\n  python vision/detect_cards.py --camera 0\n'

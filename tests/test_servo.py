@@ -1,4 +1,4 @@
-from servo_math import clamp_servo_angle, servo_sweep
+from hardware.servo_math import clamp_servo_angle, servo_sweep
 
 
 def test_clamp_keeps_arduino_range():

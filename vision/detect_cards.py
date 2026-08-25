@@ -62,7 +62,7 @@ def main() -> int:
     rank_refs, suit_refs = load_references()
     if not rank_refs or not suit_refs:
         print("Aucune reference dans references/ranks et references/suits.")
-        print("Capture-les avec: python python/capture_references.py --rank Ace")
+        print("Capture-les avec: python vision/capture_references.py --rank Ace")
         print("La detection de contour fonctionne deja; le nommage attend les photos.")
 
     backend, cam = None, None
