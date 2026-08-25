@@ -139,8 +139,9 @@ GND commun  ────────────► Fil − (marron / noir)  ←
 > La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).  
 > Le fil orange du servo se branche **à côté** du fil ULN2003 IN1 (pin 11), pas sur la pin 18.
 
-Le servo utilise un **PWM 50 Hz** en **microsecondes** (comme `Servo.writeMicroseconds`),
-pas un pourcentage gpiozero. `write(50)` n’est **pas** 50° mécaniques.
+Le servo utilise **`lgpio.tx_servo`** : 50 impulsions/s, largeur en µs
+(comme `Servo.writeMicroseconds`). `write(50)` n’est **pas** 50° mécaniques.
+Ne pas utiliser `tx_pulse(on, off)` : sur Pi 5 ça sort ~2,5 Hz (tick-tick).
 
 ### Test
 
@@ -455,7 +456,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais alimentés mais pas de clic / LED IN éteinte | Alim 5 V ≠ signal IN. `python test_hardware.py relays` (HIGH puis LOW). Pin physique 18 = BCM 24, pas BCM 18. Trigger LOW déjà activé. Si LED IN ne s’allume jamais : jumper IN→GND, sinon transistor / module 3,3 V |
-| Servo trop lent / mauvais angles | Le servo lit des **µs**, pas des degrés. `servo-calibrate` ; si ça ne monte pas assez, baisse `SERVO_ANGLE_UP` vers 0 |
+| Servo tick-tick ~2,5 fois/s, rampe au ralenti | Ce n’était pas les angles : `tx_pulse` n’envoyait pas du 50 Hz. Relancer `servo-sweep` (tx_servo). Mouvement franc puis maintien, pas des clacs |
 | Servo alimenté mais ne bouge pas | Signal sur **pin physique 12** (BCM 18), à côté du stepper IN1 pin 11 — **pas** la pin 18. `blink --bcm 18` puis `servo-sweep`. GND commun + 5 V dédié |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |

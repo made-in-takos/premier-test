@@ -51,6 +51,38 @@ def digital_output(bcm, initial_high=False):
     return DigitalOutputDevice(bcm, active_high=True, initial_value=bool(initial_high))
 
 
+def lgpio_chip_handle():
+    """Même gpiochip que le stepper (gpiozero LGPIOFactory, chip 4 sur Pi 5)."""
+    from gpiozero import Device
+    from gpiozero.pins.lgpio import LGPIOFactory
+
+    factory = Device.pin_factory
+    if factory is None:
+        Device.pin_factory = LGPIOFactory()
+        factory = Device.pin_factory
+    handle = getattr(factory, "_handle", None)
+    if handle is None:
+        raise RuntimeError(
+            f"gpiozero factory {type(factory).__name__} n'expose pas lgpio "
+            "(attendu sur Raspberry Pi 5)."
+        )
+    return handle
+
+
+def claim_lgpio_output(bcm):
+    """Réserve une broche en sortie lgpio, sans DigitalOutputDevice par-dessus."""
+    import lgpio
+
+    handle = lgpio_chip_handle()
+    bcm = int(bcm)
+    try:
+        lgpio.gpio_free(handle, bcm)
+    except Exception:
+        pass
+    lgpio.gpio_claim_output(handle, bcm)
+    return lgpio, handle, bcm
+
+
 def blink(bcm, times=5, on_s=0.5, off_s=0.5):
     """Bascule HIGH / LOW — même driver que le stepper qui marche."""
     import time

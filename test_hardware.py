@@ -207,13 +207,19 @@ def cmd_servo_sweep():
         f"{angle_to_pulse_us(config.SERVO_ANGLE_DOWN):.0f} µs (bas)."
     )
     print("Ce ne sont pas des degrés mécaniques. Calibration : servo-calibrate")
+    print("Attendu : un mouvement franc, puis un maintien (léger buzz 50 Hz).")
+    print("Si tu entends tick-tick ~2,5 fois/s, le PWM n'est pas à 50 Hz.")
     servo = ServoController()
     try:
-        print("monter, descendre, monter, descendre")
-        servo.up()
-        servo.down()
-        servo.up()
-        servo.down()
+        for label, angle in (
+            ("haut", config.SERVO_ANGLE_UP),
+            ("bas", config.SERVO_ANGLE_DOWN),
+            ("haut", config.SERVO_ANGLE_UP),
+            ("bas", config.SERVO_ANGLE_DOWN),
+        ):
+            print(f"  {label}  write({angle}) = {angle_to_pulse_us(angle):.0f} µs")
+            servo.write(angle)
+            time.sleep(1.5)
         print("Test terminé.")
     finally:
         servo.cleanup()
