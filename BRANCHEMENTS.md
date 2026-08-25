@@ -314,7 +314,7 @@ python test_hardware.py pins        # clignotement relais + capteur zéro
 python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
-python test_hardware.py servo-sweep                 # lève / baisse (50° ↔ 130°)
+python test_hardware.py servo-sweep                 # monter, descendre, monter, descendre
 python test_hardware.py card-pick                   # ventouse
 python test_hardware.py lift-down                   # vérin
 python test_hardware.py pick-cycle                  # cycle mécanique complet

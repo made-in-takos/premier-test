@@ -191,13 +191,12 @@ def cmd_servo_sweep():
 
     servo = ServoController()
     try:
-        print(f"Balayage bas {config.SERVO_ANGLE_DOWN:.0f}° ↔ haut {config.SERVO_ANGLE_UP:.0f}° via {servo.backend}")
-        print("Ctrl+C pour arrêter — le premier mouvement doit LEVER le bras")
-        while True:
-            servo.up()
-            servo.down()
-    except KeyboardInterrupt:
-        print("\nStop balayage")
+        print(f"Test servo via {servo.backend} : monter, descendre, monter, descendre")
+        servo.up()
+        servo.down()
+        servo.up()
+        servo.down()
+        print("Test terminé.")
     finally:
         servo.cleanup()
 

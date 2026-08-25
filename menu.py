@@ -95,15 +95,13 @@ class SorterUI:
                 self.lcd.message("En test", "skip")
 
     def _test_servo(self):
-        self.lcd.message("Test servo", "1")
+        self.lcd.message("Test servo", "haut bas")
         if not self.servo:
-            _sleep(config.HARDWARE_TEST_HOLD_S)
             return
         self.servo.up()
-        _sleep(config.HARDWARE_TEST_HOLD_S)
         self.servo.down()
-        _sleep(config.HARDWARE_TEST_HOLD_S)
         self.servo.up()
+        self.servo.down()
         self.lcd.message("En test", "# pour menu")
 
     def _test_stepper(self):
