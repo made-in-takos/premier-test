@@ -126,22 +126,41 @@ sudo raspi-config
 ### Schéma
 
 ```
-Raspberry Pi              Servomoteur (ex. SG90 / MG996R)
+Raspberry Pi              Servomoteur (ex. SG90 / MG90S / MG996R)
 ─────────────             ──────────────────────────────
-GPIO 18 (signal) ───────► Fil signal (orange/jaune)
-5V ─────────────────────► Fil + (rouge)  ← alim externe si gros servo
-GND ────────────────────► Fil - (marron/noir)
+GPIO 18 (pin physique **12**) ───────► Fil signal (orange / jaune)
+5 V externe ────────────► Fil + (rouge)   ← pas le 5 V du Pi si possible
+GND commun  ────────────► Fil − (marron / noir)  ← obligatoire avec le Pi
 ```
 
-### Calibration
-Ajuster dans `config.py` :
-- `SERVO_ANGLE_UP = 90` → bras relevé (transport)
-- `SERVO_ANGLE_DOWN = 25` → bras baissé (contact carte)
+> **Piège de numérotation :** GPIO 18 = **pin physique 12** du header 40 broches.  
+> La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).
 
-Test :
+Sur Raspberry Pi 5, pigpio n’existe pas. Le code utilise `lgpio.tx_pwm` (50 Hz), pas `gpiozero.AngularServo`.
+
+### Test
+
 ```bash
+python test_hardware.py servo --angle 45
+python test_hardware.py servo-sweep
 python test_hardware.py servo-calibrate
 ```
+
+`servo --angle 45` **maintient le PWM** jusqu’à Entrée. Si tu relâches tout de suite, le servo n’a pas le temps de bouger.
+
+### Calibration
+Dans `config.py` :
+- `SERVO_ANGLE_UP = 90` → bras relevé (transport)
+- `SERVO_ANGLE_DOWN = 25` → bras baissé (contact carte)
+- `SERVO_MIN_PULSE_US` / `SERVO_MAX_PULSE_US` (500–2500 par défaut)
+- `SERVO_BACKEND = "auto"` (`lgpio`, `gpiozero` ou `thread`)
+
+Si le servo ne bouge toujours pas :
+1. Masse **commune** Pi ↔ alim 5 V du servo
+2. Alim 5 V **dédiée** (un SG90 peut faire chuter le 5 V du Pi)
+3. Signal sur **pin physique 12** (BCM 18), pas la pin 18 BOARD
+4. `sudo apt install python3-lgpio`
+5. Forcer le repli : `SERVO_BACKEND = "thread"` dans `config.py`
 
 ---
 
@@ -293,6 +312,7 @@ python test_hardware.py pins        # clignotement relais + capteur zéro
 python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
+python test_hardware.py servo-sweep                 # balayage 0–180°
 python test_hardware.py card-pick                   # ventouse
 python test_hardware.py lift-down                   # vérin
 python test_hardware.py pick-cycle                  # cycle mécanique complet
@@ -378,6 +398,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais ne switchent pas | `RELAY_ACTIVE_LOW`, alim 5 V module relais |
+| Servo ne bouge pas | PWM Pi 5 : installer `python3-lgpio`, tester `servo-sweep`, GND commun, 5 V externe |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |
 | Ventouse ne prend pas | Timings `VACUUM_ON_DELAY_S`, fuite pneumatique |

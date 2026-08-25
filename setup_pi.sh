@@ -10,6 +10,7 @@ sudo apt install -y \
     python3-opencv \
     python3-numpy \
     python3-gpiozero \
+    python3-lgpio \
     python3-picamera2 \
     libatlas-base-dev
 

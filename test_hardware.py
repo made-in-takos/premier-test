@@ -9,7 +9,8 @@ Usage :
     python test_hardware.py home
     python test_hardware.py move --angle -45
     python test_hardware.py scan
-    python test_hardware.py servo --angle 90
+    python test_hardware.py servo --angle 45
+    python test_hardware.py servo-sweep
     python test_hardware.py servo-calibrate
     python test_hardware.py pneumatic-pick
     python test_hardware.py pneumatic-release
@@ -38,7 +39,7 @@ def cmd_status():
     print(f"  ULN2003 IN3  : {config.GPIO_STEPPER_IN3}")
     print(f"  ULN2003 IN4  : {config.GPIO_STEPPER_IN4}")
     print(f"  HOME         : {config.GPIO_HOME_SWITCH}")
-    print(f"  SERVO        : {config.GPIO_SERVO_TILT}")
+    print(f"  SERVO        : {config.GPIO_SERVO_TILT}  (pin physique 12, pas la pin 18 BOARD)")
     print(f"  POMPE_CARTE  : {config.GPIO_RELAY_PUMP_CARD}  (circuit 1 — ventouse)")
     print(f"  EV_CARTE     : {config.GPIO_RELAY_VALVE_CARD}")
     print(f"  POMPE_VERIN  : {config.GPIO_RELAY_PUMP_LIFT}  (circuit 2 — étage)")
@@ -151,27 +152,51 @@ def cmd_scan():
 
 
 def cmd_servo(angle):
-    from servo_controller import ServoController
+    from servo_controller import ServoController, angle_to_pulse_us
 
     servo = ServoController()
     try:
-        print(f"Servo → {angle}°")
+        pulse = angle_to_pulse_us(angle)
+        print(
+            f"Servo GPIO {config.GPIO_SERVO_TILT} via {servo.backend} "
+            f"→ {angle}° ({pulse:.0f} µs)"
+        )
         servo.move_to(angle)
+        print("PWM maintenu. Le bras doit rester en position.")
+        print("Vérifie : fil orange → pin 12 (GPIO 18), rouge → 5 V, marron → GND commun.")
+        input("Entrée pour couper le PWM…")
+    finally:
+        servo.cleanup(park=False)
+
+
+def cmd_servo_calibrate():
+    from servo_controller import ServoController, angle_to_pulse_us
+
+    servo = ServoController()
+    try:
+        print(f"Backend PWM : {servo.backend}")
+        print("Calibration servo — note les angles qui conviennent dans config.py")
+        for angle in (0, 25, 45, 60, 90, 120, 135, 180):
+            pulse = angle_to_pulse_us(angle)
+            print(f"\nAngle {angle}° ({pulse:.0f} µs) — Entrée pour continuer, Q pour quitter")
+            servo.move_to(angle)
+            if input().strip().lower() == "q":
+                break
     finally:
         servo.cleanup()
 
 
-def cmd_servo_calibrate():
+def cmd_servo_sweep():
     from servo_controller import ServoController
 
     servo = ServoController()
     try:
-        print("Calibration servo — note les angles qui conviennent dans config.py")
-        for angle in (0, 25, 45, 60, 90, 120, 135, 180):
-            print(f"\nAngle {angle}° — Entrée pour continuer, Q pour quitter")
-            servo.move_to(angle)
-            if input().strip().lower() == "q":
-                break
+        print(f"Balayage 0° ↔ 180° via {servo.backend} — Ctrl+C pour arrêter")
+        while True:
+            servo.move_to(0)
+            servo.move_to(180)
+    except KeyboardInterrupt:
+        print("\nStop balayage")
     finally:
         servo.cleanup()
 
@@ -299,6 +324,7 @@ def main():
     sub.add_parser("home")
     sub.add_parser("scan")
     sub.add_parser("servo-calibrate")
+    sub.add_parser("servo-sweep")
     sub.add_parser("card-pick")
     sub.add_parser("card-release")
     sub.add_parser("lift-down")
@@ -329,6 +355,7 @@ def main():
         "home": cmd_home,
         "scan": cmd_scan,
         "servo-calibrate": cmd_servo_calibrate,
+        "servo-sweep": cmd_servo_sweep,
         "card-pick": cmd_card_pick,
         "card-release": cmd_card_release,
         "lift-down": cmd_lift_down,
