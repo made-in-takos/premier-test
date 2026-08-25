@@ -128,7 +128,7 @@ sudo raspi-config
 ```
 Raspberry Pi              Servomoteur (ex. SG90 / MG90S / MG996R)
 ─────────────             ──────────────────────────────
-GPIO 18 (pin physique **12**) ───────► Fil signal (orange / jaune)
+GPIO 18 (pin physique 12) ───────► Fil signal (orange / jaune)
 5 V externe ────────────► Fil + (rouge)   ← pas le 5 V du Pi si possible
 GND commun  ────────────► Fil − (marron / noir)  ← obligatoire avec le Pi
 ```
@@ -149,18 +149,20 @@ python test_hardware.py servo-calibrate
 `servo --angle 45` **maintient le PWM** jusqu’à Entrée. Si tu relâches tout de suite, le servo n’a pas le temps de bouger.
 
 ### Calibration
-Dans `config.py` :
-- `SERVO_ANGLE_UP = 90` → bras relevé (transport)
-- `SERVO_ANGLE_DOWN = 25` → bras baissé (contact carte)
+Dans `config.py` (valeurs Arduino : 50° relevé, 130° baissé) :
+- `SERVO_ANGLE_DOWN = 130` → **position basse / repos** (le bras commence ici)
+- `SERVO_ANGLE_UP = 50` → bras relevé (transport)
+- `SERVO_INVERT = True` si le bras se lève dans le mauvais sens
 - `SERVO_MIN_PULSE_US` / `SERVO_MAX_PULSE_US` (500–2500 par défaut)
-- `SERVO_BACKEND = "auto"` (`lgpio`, `gpiozero` ou `thread`)
+
+Le PWM est généré en impulsions 50 Hz (busy-wait), pas via `tx_pwm` : sur Pi 5 ce dernier met souvent un duty de 0 %, le servo n’est plus tenu et le bras reste baissé.
 
 Si le servo ne bouge toujours pas :
 1. Masse **commune** Pi ↔ alim 5 V du servo
-2. Alim 5 V **dédiée** (un SG90 peut faire chuter le 5 V du Pi)
+2. Alim 5 V **dédiée**
 3. Signal sur **pin physique 12** (BCM 18), pas la pin 18 BOARD
 4. `sudo apt install python3-lgpio`
-5. Forcer le repli : `SERVO_BACKEND = "thread"` dans `config.py`
+5. Inverser le sens : `SERVO_INVERT = True`
 
 ---
 
@@ -312,7 +314,7 @@ python test_hardware.py pins        # clignotement relais + capteur zéro
 python test_hardware.py step --steps 512 --dir cw   # 28BYJ-48 / ULN2003 (90°)
 python test_hardware.py home        # homing
 python test_hardware.py servo-calibrate             # angles servo
-python test_hardware.py servo-sweep                 # balayage 0–180°
+python test_hardware.py servo-sweep                 # lève / baisse (50° ↔ 130°)
 python test_hardware.py card-pick                   # ventouse
 python test_hardware.py lift-down                   # vérin
 python test_hardware.py pick-cycle                  # cycle mécanique complet
@@ -398,7 +400,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais ne switchent pas | `RELAY_ACTIVE_LOW`, alim 5 V module relais |
-| Servo ne bouge pas | PWM Pi 5 : installer `python3-lgpio`, tester `servo-sweep`, GND commun, 5 V externe |
+| Servo ne bouge pas / reste en bas | PWM Pi 5 : `servo-sweep` doit lever le bras ; GND commun ; `SERVO_INVERT = True` si le sens est faux |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |
 | Ventouse ne prend pas | Timings `VACUUM_ON_DELAY_S`, fuite pneumatique |

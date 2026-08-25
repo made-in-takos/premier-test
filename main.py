@@ -227,7 +227,7 @@ def main():
 
     try:
         lcd.begin(16, 2)
-        sorter.servo.up()
+        sorter.servo.down()
 
         if args.calibrate:
             ui.manual_home()

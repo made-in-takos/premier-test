@@ -1,11 +1,12 @@
 """
 Contrôle du servomoteur d'inclinaison du bras.
 
-Sur Raspberry Pi 5, gpiozero.AngularServo (PWM logiciel) ne génère
-souvent aucun mouvement. On utilise dans l'ordre :
-  1. lgpio.tx_pwm  — PWM cadencé par le chip RP1 (recommandé Pi 5)
-  2. gpiozero PWMOutputDevice
-  3. impulsions 50 Hz dans un thread (DigitalOutputDevice)
+Le bras au repos est en **position basse** (comme au démarrage mécanique).
+Angles calqués sur l'Arduino : 50° relevé, 130° baissé.
+
+Sur Pi 5, lgpio.tx_pwm à 50 Hz arrondit souvent le duty à 0 % : le servo
+n'est plus alimenté et le bras retombe. On génère donc les impulsions
+nous-mêmes (busy-wait ~1,5 ms, 50 Hz).
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ import config
 
 def angle_to_pulse_us(angle: float) -> float:
     angle = max(0.0, min(180.0, float(angle)))
+    if config.SERVO_INVERT:
+        angle = 180.0 - angle
     span = config.SERVO_MAX_PULSE_US - config.SERVO_MIN_PULSE_US
     return config.SERVO_MIN_PULSE_US + (angle / 180.0) * span
 
@@ -30,7 +33,6 @@ def pulse_us_to_duty(pulse_us: float, hz: float | None = None) -> float:
 
 
 def _gpiochip_candidates():
-    """Pi 5 : GPIOs du header = gpiochip4 (RP1). Pi 4 : gpiochip0."""
     chips = []
     try:
         with open("/proc/device-tree/model", encoding="utf-8") as f:
@@ -39,8 +41,7 @@ def _gpiochip_candidates():
         model = ""
     if "raspberry pi 5" in model or "rp1" in model:
         chips.append(4)
-    paths = sorted(glob.glob("/dev/gpiochip*"))
-    for path in paths:
+    for path in sorted(glob.glob("/dev/gpiochip*")):
         try:
             chips.append(int(path.replace("/dev/gpiochip", "")))
         except ValueError:
@@ -57,56 +58,93 @@ def _gpiochip_candidates():
 
 class ServoController:
     def __init__(self):
-        self._current_angle = config.SERVO_ANGLE_UP
+        # Repos = position basse (le bras commence baissé).
+        self._current_angle = config.SERVO_ANGLE_DOWN
         self._backend = "sim"
         self._lgpio = None
         self._handle = None
-        self._pwm = None
         self._pin = None
         self._thread = None
         self._alive = False
-        self._pulse_us = angle_to_pulse_us(config.SERVO_ANGLE_UP)
+        self._pulse_us = angle_to_pulse_us(config.SERVO_ANGLE_DOWN)
         self._lock = threading.Lock()
 
         if not config.IS_RASPBERRY:
-            print("[SIMULATION] Servomoteur inclinaison")
+            print("[SIMULATION] Servomoteur — repos en position basse")
             return
 
         preferred = (config.SERVO_BACKEND or "auto").lower()
         errors = []
 
-        if preferred in ("auto", "lgpio"):
+        # busywait d'abord : c'est le seul PWM servo fiable sur Pi 5 / RP1.
+        if preferred in ("auto", "busywait", "thread"):
             try:
-                self._init_lgpio()
+                self._init_busywait()
             except Exception as exc:
-                errors.append(f"lgpio: {exc}")
+                errors.append(f"busywait: {exc}")
+                if preferred in ("busywait", "thread"):
+                    raise
+
+        if self._backend == "sim" and preferred in ("auto", "lgpio"):
+            try:
+                self._init_lgpio_tx()
+            except Exception as exc:
+                errors.append(f"lgpio tx_pwm: {exc}")
                 if preferred == "lgpio":
                     raise
 
-        if self._backend == "sim" and preferred in ("auto", "gpiozero"):
-            try:
-                self._init_gpiozero_pwm()
-            except Exception as exc:
-                errors.append(f"gpiozero PWM: {exc}")
-                if preferred == "gpiozero":
-                    raise
-
-        if self._backend == "sim" and preferred in ("auto", "thread"):
-            try:
-                self._init_thread_pwm()
-            except Exception as exc:
-                errors.append(f"thread PWM: {exc}")
-                raise RuntimeError(
-                    "Impossible de piloter le servo. " + " | ".join(errors)
-                ) from exc
+        if self._backend == "sim":
+            raise RuntimeError("Impossible de piloter le servo. " + " | ".join(errors))
 
         self._apply_pulse(self._pulse_us)
         print(
             f"Servo GPIO {config.GPIO_SERVO_TILT} via {self._backend} "
-            f"({self._pulse_us:.0f} µs, {config.SERVO_PWM_HZ} Hz)"
+            f"— repos {config.SERVO_ANGLE_DOWN:.0f}° ({self._pulse_us:.0f} µs)"
         )
 
-    def _init_lgpio(self):
+    def _init_busywait(self):
+        """Impulsions 50 Hz en busy-wait (largeur ~µs exacte)."""
+        pin = config.GPIO_SERVO_TILT
+        try:
+            import lgpio
+        except ImportError:
+            self._init_busywait_gpiozero()
+            return
+
+        last_error = None
+        for chip in _gpiochip_candidates():
+            handle = None
+            try:
+                handle = lgpio.gpiochip_open(chip)
+                lgpio.gpio_claim_output(handle, pin)
+                self._lgpio = lgpio
+                self._handle = handle
+                self._alive = True
+                self._backend = "busywait"
+                self._thread = threading.Thread(target=self._busywait_lgpio_loop, daemon=True)
+                self._thread.start()
+                print(f"  PWM busywait lgpio gpiochip{chip} GPIO {pin}")
+                return
+            except Exception as exc:
+                last_error = exc
+                if handle is not None:
+                    try:
+                        lgpio.gpiochip_close(handle)
+                    except Exception:
+                        pass
+        raise RuntimeError(last_error or "lgpio busywait")
+
+    def _init_busywait_gpiozero(self):
+        from gpiozero import DigitalOutputDevice
+
+        self._pin = DigitalOutputDevice(config.GPIO_SERVO_TILT, initial_value=False)
+        self._alive = True
+        self._backend = "busywait"
+        self._thread = threading.Thread(target=self._busywait_gpiozero_loop, daemon=True)
+        self._thread.start()
+        print(f"  PWM busywait gpiozero GPIO {config.GPIO_SERVO_TILT}")
+
+    def _init_lgpio_tx(self):
         import lgpio
 
         pin = config.GPIO_SERVO_TILT
@@ -119,7 +157,6 @@ class ServoController:
                 self._lgpio = lgpio
                 self._handle = handle
                 self._backend = "lgpio"
-                print(f"  lgpio gpiochip{chip}, GPIO {pin}")
                 return
             except Exception as exc:
                 last_error = exc
@@ -128,71 +165,70 @@ class ServoController:
                         lgpio.gpiochip_close(handle)
                     except Exception:
                         pass
-        raise RuntimeError(last_error or "aucun gpiochip lgpio")
+        raise RuntimeError(last_error or "lgpio tx_pwm")
 
-    def _init_gpiozero_pwm(self):
-        from gpiozero import PWMOutputDevice
-
-        duty = pulse_us_to_duty(self._pulse_us) / 100.0
-        self._pwm = PWMOutputDevice(
-            config.GPIO_SERVO_TILT,
-            frequency=config.SERVO_PWM_HZ,
-            initial_value=duty,
-        )
-        try:
-            self._pwm.frequency = config.SERVO_PWM_HZ
-        except Exception:
-            pass
-        self._backend = "gpiozero"
-        print(f"  gpiozero PWM {config.SERVO_PWM_HZ} Hz, duty={duty:.4f}")
-
-    def _init_thread_pwm(self):
-        from gpiozero import DigitalOutputDevice
-
-        self._pin = DigitalOutputDevice(config.GPIO_SERVO_TILT, initial_value=False)
-        self._alive = True
-        self._thread = threading.Thread(target=self._pwm_loop, daemon=True)
-        self._thread.start()
-        self._backend = "thread"
-
-    def _pwm_loop(self):
-        period = 1.0 / config.SERVO_PWM_HZ
+    def _busywait_lgpio_loop(self):
+        write = self._lgpio.gpio_write
+        handle = self._handle
+        pin = config.GPIO_SERVO_TILT
+        period_ns = int(1_000_000_000 / config.SERVO_PWM_HZ)
         while self._alive:
             with self._lock:
-                pulse_s = self._pulse_us / 1_000_000.0
-            if self._pin is None or pulse_s <= 0:
-                time.sleep(period)
+                pulse_ns = int(self._pulse_us * 1000)
+            start = time.perf_counter_ns()
+            write(handle, pin, 1)
+            while time.perf_counter_ns() - start < pulse_ns:
+                pass
+            write(handle, pin, 0)
+            rest = period_ns - (time.perf_counter_ns() - start)
+            if rest > 2_000_000:
+                time.sleep((rest - 400_000) / 1_000_000_000)
+            while time.perf_counter_ns() - start < period_ns:
+                pass
+
+    def _busywait_gpiozero_loop(self):
+        period_ns = int(1_000_000_000 / config.SERVO_PWM_HZ)
+        pin = self._pin
+        while self._alive:
+            with self._lock:
+                pulse_ns = int(self._pulse_us * 1000)
+            if pin is None:
+                time.sleep(0.02)
                 continue
-            self._pin.on()
-            time.sleep(pulse_s)
-            self._pin.off()
-            off_s = period - pulse_s
-            if off_s > 0:
-                time.sleep(off_s)
+            start = time.perf_counter_ns()
+            pin.on()
+            while time.perf_counter_ns() - start < pulse_ns:
+                pass
+            pin.off()
+            rest = period_ns - (time.perf_counter_ns() - start)
+            if rest > 2_000_000:
+                time.sleep((rest - 400_000) / 1_000_000_000)
+            while time.perf_counter_ns() - start < period_ns:
+                pass
 
     def _apply_pulse(self, pulse_us: float):
         pulse_us = max(config.SERVO_MIN_PULSE_US, min(config.SERVO_MAX_PULSE_US, pulse_us))
         with self._lock:
             self._pulse_us = pulse_us
-        duty = pulse_us_to_duty(pulse_us)
-
         if self._backend == "lgpio" and self._lgpio and self._handle is not None:
+            duty = pulse_us_to_duty(pulse_us)
             self._lgpio.tx_pwm(
                 self._handle,
                 config.GPIO_SERVO_TILT,
                 config.SERVO_PWM_HZ,
                 duty,
             )
-        elif self._backend == "gpiozero" and self._pwm is not None:
-            self._pwm.value = duty / 100.0
-        # thread backend lit _pulse_us tout seul
 
     def _stop_pwm(self):
         self._alive = False
         if self._thread is not None:
             self._thread.join(timeout=0.5)
             self._thread = None
-        if self._backend == "lgpio" and self._lgpio and self._handle is not None:
+        if self._lgpio and self._handle is not None:
+            try:
+                self._lgpio.gpio_write(self._handle, config.GPIO_SERVO_TILT, 0)
+            except Exception:
+                pass
             try:
                 self._lgpio.tx_pwm(self._handle, config.GPIO_SERVO_TILT, 0, 0)
             except Exception:
@@ -206,13 +242,6 @@ class ServoController:
             except Exception:
                 pass
             self._handle = None
-        if self._pwm is not None:
-            try:
-                self._pwm.off()
-                self._pwm.close()
-            except Exception:
-                pass
-            self._pwm = None
         if self._pin is not None:
             try:
                 self._pin.off()
@@ -228,20 +257,14 @@ class ServoController:
 
         if wait and step_ms > 0 and abs(target - start) >= 1:
             direction = 1 if target > start else -1
-            angle = start
-            while (direction > 0 and angle < target) or (direction < 0 and angle > target):
-                angle += direction
-                if (direction > 0 and angle > target) or (direction < 0 and angle < target):
-                    angle = target
-                self._apply_pulse(angle_to_pulse_us(angle))
-                self._current_angle = angle
+            current = start
+            while (direction > 0 and current < target) or (direction < 0 and current > target):
+                current += direction
+                if (direction > 0 and current > target) or (direction < 0 and current < target):
+                    current = target
+                self._apply_pulse(angle_to_pulse_us(current))
+                self._current_angle = current
                 time.sleep(step_ms / 1000.0)
-        else:
-            self._apply_pulse(angle_to_pulse_us(target))
-            self._current_angle = target
-            if wait:
-                time.sleep(config.SERVO_SETTLE_S)
-            return
 
         self._apply_pulse(angle_to_pulse_us(target))
         self._current_angle = target
@@ -249,13 +272,13 @@ class ServoController:
             time.sleep(config.SERVO_SETTLE_S)
 
     def up(self):
-        """Bras relevé — position transport."""
-        print("  Servo : bras relevé")
+        """Bras relevé — position transport (50° sur l'Arduino)."""
+        print(f"  Servo : bras relevé ({config.SERVO_ANGLE_UP:.0f}°)")
         self.move_to(config.SERVO_ANGLE_UP)
 
     def down(self):
-        """Bras baissé — prise ou dépôt de carte."""
-        print("  Servo : bras baissé")
+        """Bras baissé — prise / dépôt / repos (130° sur l'Arduino)."""
+        print(f"  Servo : bras baissé ({config.SERVO_ANGLE_DOWN:.0f}°)")
         self.move_to(config.SERVO_ANGLE_DOWN)
 
     @property
@@ -271,7 +294,7 @@ class ServoController:
             return
         try:
             if park:
-                self.move_to(config.SERVO_ANGLE_UP)
+                self.down()
         except Exception:
             pass
         self._stop_pwm()

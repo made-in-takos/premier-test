@@ -21,16 +21,35 @@ def test_duty_cycle_50hz():
     assert pulse_us_to_duty(20000, 50) == 100
 
 
+def test_invert_swaps_pulse_direction():
+    original = config.SERVO_INVERT
+    try:
+        config.SERVO_INVERT = False
+        normal_up = angle_to_pulse_us(config.SERVO_ANGLE_UP)
+        config.SERVO_INVERT = True
+        inverted_up = angle_to_pulse_us(config.SERVO_ANGLE_UP)
+        assert inverted_up != normal_up
+        assert abs(
+            (normal_up + inverted_up)
+            - (config.SERVO_MIN_PULSE_US + config.SERVO_MAX_PULSE_US)
+        ) < 1
+    finally:
+        config.SERVO_INVERT = original
+
+
 def test_simulated_move_updates_angle():
     original = config.SERVO_MS_PER_DEG
     config.SERVO_MS_PER_DEG = 0
     try:
         servo = ServoController()
         assert servo.backend == "sim"
+        assert servo.current_angle == config.SERVO_ANGLE_DOWN
         servo.move_to(25)
         assert servo.current_angle == 25
         servo.up()
         assert servo.current_angle == config.SERVO_ANGLE_UP
+        servo.down()
+        assert servo.current_angle == config.SERVO_ANGLE_DOWN
         servo.cleanup()
     finally:
         config.SERVO_MS_PER_DEG = original
