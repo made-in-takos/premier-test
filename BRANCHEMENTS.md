@@ -139,7 +139,8 @@ GND commun  ────────────► Fil − (marron / noir)  ←
 > La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).  
 > Le fil orange du servo se branche **à côté** du fil ULN2003 IN1 (pin 11), pas sur la pin 18.
 
-Servo et relais utilisent le **même driver gpiozero** que le stepper qui marche (`DigitalOutputDevice`).
+Le servo utilise un **PWM 50 Hz** (`gpiozero.PWMOutputDevice`, impulsions 544–2400 µs comme `Servo.h`).  
+Les relais restent en tout-ou-rien (`DigitalOutputDevice`), comme le stepper.
 
 ### Test
 
@@ -160,11 +161,17 @@ Comme sur l’Arduino, on ne règle que les **angles** :
 
 Si le bras se lève dans le mauvais sens, inverse 50 et 130.
 
-Si le servo ne bouge pas (alim 5 V OK, pas de mouvement) :
+Si le servo bouge mais **trop lentement / mauvais angles** : c’était l’ancien PWM logiciel
+(on/off Python) qui allongeait les impulsions. Relance `servo-sweep` : 50° ≈ 1060 µs,
+130° ≈ 1884 µs, comme sur l’Arduino. Un aller 50↔130 doit prendre ~3 s (`SERVO_SPEED_MS = 40`).
+Si le sens est inversé, échange `SERVO_ANGLE_UP` et `SERVO_ANGLE_DOWN`.
+Pour aller plus vite, baisse `SERVO_SPEED_MS` (ex. 15).
+
+Si le servo ne bouge pas du tout :
 1. Signal sur **pin physique 12** (BCM 18), **pas** la pin 18 BOARD
 2. Masse **commune** Pi ↔ alim 5 V du servo
 3. Alim 5 V **dédiée** (pas seulement le 5 V du Pi)
-4. Diagnostic : `python test_hardware.py blink --bcm 18` — le fil orange doit voir du 3,3 V pulsé
+4. Diagnostic : `python test_hardware.py blink --bcm 18`
 
 ---
 
@@ -435,6 +442,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais alimentés mais pas de clic / LED IN éteinte | Alim 5 V ≠ signal IN. `python test_hardware.py relays` (HIGH puis LOW). Pin physique 18 = BCM 24, pas BCM 18. Trigger LOW déjà activé. Si LED IN ne s’allume jamais : jumper IN→GND, sinon transistor / module 3,3 V |
+| Servo trop lent / mauvais angles | PWM 50 Hz (544–2400 µs). `servo-sweep` ; inverser `SERVO_ANGLE_UP` / `DOWN` si le sens est faux ; baisser `SERVO_SPEED_MS` pour aller plus vite |
 | Servo alimenté mais ne bouge pas | Signal sur **pin physique 12** (BCM 18), à côté du stepper IN1 pin 11 — **pas** la pin 18. `blink --bcm 18` puis `servo-sweep`. GND commun + 5 V dédié |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |

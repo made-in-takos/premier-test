@@ -3,34 +3,38 @@ Servomoteur d'inclinaison — même usage que le sketch Arduino.
 
     ControlHauteurBras.write(50)
 
-Pilotage identique au stepper qui fonctionne : gpiozero DigitalOutputDevice.
+Impulsions identiques à Servo.h : 544–2400 µs à 50 Hz.
+Sur le Pi le PWM passe par gpiozero PWMOutputDevice (lgpio.tx_pwm),
+pas par un on/off Python : ce bit-bang allongeait les impulsions,
+d'où un bras trop lent et des angles faux.
 """
 
-import threading
 import time
 
 import config
-from gpio_out import describe, digital_output
+from gpio_out import describe
 
 # Servo.h (Arduino)
 _MIN_PULSE_US = 544
 _MAX_PULSE_US = 2400
 _REFRESH_US = 20_000
+_REFRESH_HZ = 50
 
 
-def _angle_to_pulse_us(angle):
-    angle = max(0, min(180, int(angle)))
+def angle_to_pulse_us(angle):
+    """Équivalent de Servo.write : 0° → 544 µs, 180° → 2400 µs."""
+    angle = max(0, min(180, int(round(angle))))
     return _MIN_PULSE_US + (angle / 180.0) * (_MAX_PULSE_US - _MIN_PULSE_US)
+
+
+def _duty_cycle(angle):
+    return angle_to_pulse_us(angle) / _REFRESH_US
 
 
 class ServoController:
     def __init__(self):
         self._angle = config.SERVO_ANGLE_DOWN
-        self._pulse_us = _angle_to_pulse_us(self._angle)
-        self._lock = threading.Lock()
-        self._running = False
-        self._thread = None
-        self._pin = None
+        self._pwm = None
 
         if config.IS_RASPBERRY:
             self._attach()
@@ -41,9 +45,9 @@ class ServoController:
     def write(self, angle):
         """Équivalent de ControlHauteurBras.write(angle)."""
         angle = max(0, min(180, int(round(angle))))
-        with self._lock:
-            self._angle = angle
-            self._pulse_us = _angle_to_pulse_us(angle)
+        self._angle = angle
+        if self._pwm is not None:
+            self._pwm.value = _duty_cycle(angle)
 
     def move_to(self, angle, wait=True):
         """Équivalent de FCTControlleServo(cible, vitesse)."""
@@ -58,11 +62,13 @@ class ServoController:
         self.write(target)
 
     def up(self):
-        print(f"  Servo : monter ({config.SERVO_ANGLE_UP}°)")
+        pulse = angle_to_pulse_us(config.SERVO_ANGLE_UP)
+        print(f"  Servo : monter ({config.SERVO_ANGLE_UP}°)  {pulse:.0f} µs")
         self.move_to(config.SERVO_ANGLE_UP)
 
     def down(self):
-        print(f"  Servo : descendre ({config.SERVO_ANGLE_DOWN}°)")
+        pulse = angle_to_pulse_us(config.SERVO_ANGLE_DOWN)
+        print(f"  Servo : descendre ({config.SERVO_ANGLE_DOWN}°)  {pulse:.0f} µs")
         self.move_to(config.SERVO_ANGLE_DOWN)
 
     @property
@@ -78,39 +84,26 @@ class ServoController:
         self._detach()
 
     def _attach(self):
-        bcm = config.GPIO_SERVO_TILT
-        self._pin = digital_output(bcm, initial_high=False)
-        print(f"Servo signal → {describe(bcm)}  (à côté du stepper IN1, pin 11)")
-        self._running = True
-        self._thread = threading.Thread(target=self._refresh, daemon=True)
-        self._thread.start()
+        from gpiozero import PWMOutputDevice
 
-    def _refresh(self):
-        period_ns = _REFRESH_US * 1000
-        pin = self._pin
-        while self._running:
-            with self._lock:
-                pulse_ns = int(self._pulse_us * 1000)
-            start = time.perf_counter_ns()
-            pin.on()
-            while time.perf_counter_ns() - start < pulse_ns:
-                pass
-            pin.off()
-            rest = period_ns - (time.perf_counter_ns() - start)
-            if rest > 2_000_000:
-                time.sleep((rest - 400_000) / 1_000_000_000)
-            while time.perf_counter_ns() - start < period_ns:
-                pass
+        bcm = config.GPIO_SERVO_TILT
+        rest = _duty_cycle(self._angle)
+        self._pwm = PWMOutputDevice(
+            bcm,
+            frequency=_REFRESH_HZ,
+            initial_value=rest,
+        )
+        print(
+            f"Servo PWM {_REFRESH_HZ} Hz → {describe(bcm)}  "
+            f"(544–2400 µs, comme Servo.h)"
+        )
 
     def _detach(self):
-        self._running = False
-        if self._thread is not None:
-            self._thread.join(timeout=0.5)
-            self._thread = None
-        if self._pin is not None:
-            try:
-                self._pin.off()
-                self._pin.close()
-            except Exception:
-                pass
-            self._pin = None
+        if self._pwm is None:
+            return
+        try:
+            self._pwm.value = 0
+            self._pwm.close()
+        except Exception:
+            pass
+        self._pwm = None

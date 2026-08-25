@@ -190,7 +190,8 @@ def cmd_servo_sweep():
     from servo_controller import ServoController
 
     print(f"Signal servo → {describe(config.GPIO_SERVO_TILT)}")
-    print("Le fil orange doit être sur la pin physique 12 (à côté du stepper IN1 pin 11).")
+    print("PWM 50 Hz, 544–2400 µs (Servo.h). 50° ≈ 1060 µs, 130° ≈ 1884 µs.")
+    print("Un aller 50↔130 doit prendre ~3 s. Si le sens est faux, inverse UP/DOWN.")
     servo = ServoController()
     try:
         print("monter, descendre, monter, descendre")
