@@ -159,26 +159,36 @@ def cmd_scan():
 
 
 def cmd_servo(angle):
-    from servo_controller import ServoController
+    from servo_controller import ServoController, angle_to_pulse_us
 
     servo = ServoController()
     try:
-        print(f"Servo.write({angle})")
-        servo.move_to(angle)
+        pulse = angle_to_pulse_us(angle)
+        print(
+            f"Servo.write({int(round(angle))}) → {pulse:.0f} µs  "
+            f"(pas {int(round(angle))}° mécaniques)"
+        )
+        servo.write(angle)
         input("Entrée pour arrêter…")
     finally:
         servo.cleanup(park=False)
 
 
 def cmd_servo_calibrate():
-    from servo_controller import ServoController
+    from servo_controller import ServoController, angle_to_pulse_us
 
+    print("Le servo ne lit PAS des degrés.")
+    print("write(n) envoie une impulsion, comme Servo.write() sur l'Arduino.")
+    print("Si le bras n'est pas assez haut : note un nombre PLUS PETIT (20, 10, 0).")
+    print("Si pas assez bas : un nombre PLUS GRAND (150, 170, 180).")
+    print("Puis mets SERVO_ANGLE_UP / SERVO_ANGLE_DOWN dans config.py")
     servo = ServoController()
     try:
-        print("Calibration — note SERVO_ANGLE_UP / SERVO_ANGLE_DOWN dans config.py")
-        for angle in (0, 25, 50, 90, 130, 160, 180):
-            print(f"\nwrite({angle}) — Entrée pour continuer, Q pour quitter")
-            servo.move_to(angle)
+        for angle in (0, 20, 40, 50, 70, 90, 110, 130, 150, 180):
+            pulse = angle_to_pulse_us(angle)
+            print(f"\nwrite({angle}) = {pulse:.0f} µs — Entrée pour continuer, Q pour quitter")
+            servo.write(angle)
+            time.sleep(0.8)
             if input().strip().lower() == "q":
                 break
     finally:
@@ -187,11 +197,16 @@ def cmd_servo_calibrate():
 
 def cmd_servo_sweep():
     from gpio_out import describe
-    from servo_controller import ServoController
+    from servo_controller import ServoController, angle_to_pulse_us
 
     print(f"Signal servo → {describe(config.GPIO_SERVO_TILT)}")
-    print("PWM 50 Hz, 544–2400 µs (Servo.h). 50° ≈ 1060 µs, 130° ≈ 1884 µs.")
-    print("Un aller 50↔130 doit prendre ~3 s. Si le sens est faux, inverse UP/DOWN.")
+    print(
+        f"write({config.SERVO_ANGLE_UP}) = "
+        f"{angle_to_pulse_us(config.SERVO_ANGLE_UP):.0f} µs (haut), "
+        f"write({config.SERVO_ANGLE_DOWN}) = "
+        f"{angle_to_pulse_us(config.SERVO_ANGLE_DOWN):.0f} µs (bas)."
+    )
+    print("Ce ne sont pas des degrés mécaniques. Calibration : servo-calibrate")
     servo = ServoController()
     try:
         print("monter, descendre, monter, descendre")

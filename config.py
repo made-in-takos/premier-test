@@ -62,9 +62,13 @@ RELAY_ACTIVE_LOW = True
 # ---------------------------------------------------------------------------
 
 # Repos = position basse. Identique au sketch Arduino.
+# Le servo ne lit PAS des degrés : write(50) envoie une impulsion (~1060 µs).
+# Si le bras ne monte pas assez, baisse SERVO_ANGLE_UP vers 0 (essaie 20, 10, 0).
 GPIO_SERVO_TILT = 18  # pin physique 12
-SERVO_ANGLE_UP = 50
-SERVO_ANGLE_DOWN = 130
+SERVO_MIN_PULSE_US = 544   # Servo.h write(0)
+SERVO_MAX_PULSE_US = 2400  # Servo.h write(180)
+SERVO_ANGLE_UP = 50        # plus petit = plus haut (échelle Arduino 0–180)
+SERVO_ANGLE_DOWN = 130     # plus grand = plus bas
 SERVO_SPEED_MS = 40  # delay par degré (FCTControlleServo)
 
 # ---------------------------------------------------------------------------

@@ -139,8 +139,8 @@ GND commun  ────────────► Fil − (marron / noir)  ←
 > La pin physique **18** est GPIO 24 (déjà utilisée par le relais pompe carte).  
 > Le fil orange du servo se branche **à côté** du fil ULN2003 IN1 (pin 11), pas sur la pin 18.
 
-Le servo utilise un **PWM 50 Hz** (`gpiozero.PWMOutputDevice`, impulsions 544–2400 µs comme `Servo.h`).  
-Les relais restent en tout-ou-rien (`DigitalOutputDevice`), comme le stepper.
+Le servo utilise un **PWM 50 Hz** en **microsecondes** (comme `Servo.writeMicroseconds`),
+pas un pourcentage gpiozero. `write(50)` n’est **pas** 50° mécaniques.
 
 ### Test
 
@@ -153,19 +153,32 @@ python test_hardware.py servo-calibrate
 `servo --angle 45` **maintient le PWM** jusqu’à Entrée. Si tu relâches tout de suite, le servo n’a pas le temps de bouger.
 
 ### Calibration
-Comme sur l’Arduino, on ne règle que les **angles** :
 
-- `SERVO_ANGLE_DOWN = 130` → position basse / repos
-- `SERVO_ANGLE_UP = 50` → bras relevé
+Le servo **ne comprend pas les degrés**. Il mesure une impulsion à 50 Hz :
+
+| `write(n)` (échelle Arduino 0–180) | Impulsion | Sur un SG90 (~1000–2000 µs = 0–180° mécaniques) |
+|---|---|---|
+| 0 | 544 µs | butée (souvent au-delà de 0°) |
+| **50** (haut actuel) | **~1060 µs** | **~10° mécaniques**, pas 50° |
+| 90 | ~1472 µs | ~85° |
+| **130** (bas actuel) | **~1884 µs** | **~160° mécaniques**, pas 130° |
+| 180 | 2400 µs | butée |
+
+50 et 130 sont les nombres du sketch Arduino (`Servo.write`), pas un rapporteur.
+Si le bras **ne monte pas assez**, baisse `SERVO_ANGLE_UP` vers 0 (essaie 20, 10, 0) :
+
+```bash
+python test_hardware.py servo-calibrate
+python test_hardware.py servo --angle 0
+```
+
+- `SERVO_ANGLE_DOWN` → position basse / repos (plus grand = plus bas)
+- `SERVO_ANGLE_UP` → bras relevé (plus petit = plus haut)
 - `SERVO_SPEED_MS = 40` → délai par degré (`FCTControlleServo`)
 
-Si le bras se lève dans le mauvais sens, inverse 50 et 130.
+Si le bras se lève dans le mauvais sens, inverse UP et DOWN.
 
-Si le servo bouge mais **trop lentement / mauvais angles** : c’était l’ancien PWM logiciel
-(on/off Python) qui allongeait les impulsions. Relance `servo-sweep` : 50° ≈ 1060 µs,
-130° ≈ 1884 µs, comme sur l’Arduino. Un aller 50↔130 doit prendre ~3 s (`SERVO_SPEED_MS = 40`).
-Si le sens est inversé, échange `SERVO_ANGLE_UP` et `SERVO_ANGLE_DOWN`.
-Pour aller plus vite, baisse `SERVO_SPEED_MS` (ex. 15).
+Plage d’impulsions (comme `Servo.attach(pin, min, max)`) : `SERVO_MIN_PULSE_US` / `SERVO_MAX_PULSE_US` dans `config.py`.
 
 Si le servo ne bouge pas du tout :
 1. Signal sur **pin physique 12** (BCM 18), **pas** la pin 18 BOARD
@@ -442,7 +455,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais alimentés mais pas de clic / LED IN éteinte | Alim 5 V ≠ signal IN. `python test_hardware.py relays` (HIGH puis LOW). Pin physique 18 = BCM 24, pas BCM 18. Trigger LOW déjà activé. Si LED IN ne s’allume jamais : jumper IN→GND, sinon transistor / module 3,3 V |
-| Servo trop lent / mauvais angles | PWM 50 Hz (544–2400 µs). `servo-sweep` ; inverser `SERVO_ANGLE_UP` / `DOWN` si le sens est faux ; baisser `SERVO_SPEED_MS` pour aller plus vite |
+| Servo trop lent / mauvais angles | Le servo lit des **µs**, pas des degrés. `servo-calibrate` ; si ça ne monte pas assez, baisse `SERVO_ANGLE_UP` vers 0 |
 | Servo alimenté mais ne bouge pas | Signal sur **pin physique 12** (BCM 18), à côté du stepper IN1 pin 11 — **pas** la pin 18. `blink --bcm 18` puis `servo-sweep`. GND commun + 5 V dédié |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |
