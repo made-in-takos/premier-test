@@ -149,20 +149,18 @@ python test_hardware.py servo-calibrate
 `servo --angle 45` **maintient le PWM** jusqu’à Entrée. Si tu relâches tout de suite, le servo n’a pas le temps de bouger.
 
 ### Calibration
-Dans `config.py` (valeurs Arduino : 50° relevé, 130° baissé) :
-- `SERVO_ANGLE_DOWN = 130` → **position basse / repos** (le bras commence ici)
-- `SERVO_ANGLE_UP = 50` → bras relevé (transport)
-- `SERVO_INVERT = True` si le bras se lève dans le mauvais sens
-- `SERVO_MIN_PULSE_US` / `SERVO_MAX_PULSE_US` (500–2500 par défaut)
+Comme sur l’Arduino, on ne règle que les **angles** :
 
-Le PWM est généré en impulsions 50 Hz (busy-wait), pas via `tx_pwm` : sur Pi 5 ce dernier met souvent un duty de 0 %, le servo n’est plus tenu et le bras reste baissé.
+- `SERVO_ANGLE_DOWN = 130` → position basse / repos
+- `SERVO_ANGLE_UP = 50` → bras relevé
+- `SERVO_SPEED_MS = 40` → délai par degré (`FCTControlleServo`)
 
-Si le servo ne bouge toujours pas :
+Si le bras se lève dans le mauvais sens, inverse 50 et 130.
+
+Si le servo ne bouge pas :
 1. Masse **commune** Pi ↔ alim 5 V du servo
 2. Alim 5 V **dédiée**
 3. Signal sur **pin physique 12** (BCM 18), pas la pin 18 BOARD
-4. `sudo apt install python3-lgpio`
-5. Inverser le sens : `SERVO_INVERT = True`
 
 ---
 
@@ -400,7 +398,7 @@ Les numéros Mega ne se branchent pas tels quels sur le Pi : utilise le tableau 
 | Moteur très chaud | Normal en maintien ; le code coupe les bobines après chaque mouvement |
 | Homing timeout | Câblage capteur GPIO 23, ou `HOME_SEARCH_CLOCKWISE` |
 | Relais ne switchent pas | `RELAY_ACTIVE_LOW`, alim 5 V module relais |
-| Servo ne bouge pas / reste en bas | PWM Pi 5 : `servo-sweep` doit lever le bras ; GND commun ; `SERVO_INVERT = True` si le sens est faux |
+| Servo ne bouge pas / reste en bas | `servo-sweep` ; GND commun ; inverser `SERVO_ANGLE_UP` / `DOWN` si le sens est faux |
 | Servo tremble | Alim externe 5 V dédiée, pas depuis le Pi |
 | Caméra absente | `rpicam-hello --list-cameras`, ruban CSI |
 | Ventouse ne prend pas | Timings `VACUUM_ON_DELAY_S`, fuite pneumatique |

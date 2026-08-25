@@ -59,22 +59,11 @@ RELAY_ACTIVE_LOW = True
 # GPIO — servomoteur (inclinaison du bras)
 # ---------------------------------------------------------------------------
 
-# Repos = position basse. Identique au sketch Arduino (50 = relevé, 130 = baissé).
+# Repos = position basse. Identique au sketch Arduino.
+GPIO_SERVO_TILT = 18  # pin physique 12
 SERVO_ANGLE_UP = 50
 SERVO_ANGLE_DOWN = 130
-SERVO_INVERT = False  # True si le bras se lève dans le mauvais sens
-
-GPIO_SERVO_TILT = 18  # pin physique 12 — signal 3,3 V
-
-# Impulsions type SG90 / MG90S (50 Hz). 1500 µs ≈ 90°.
-SERVO_MIN_PULSE_US = 500
-SERVO_MAX_PULSE_US = 2500
-SERVO_PWM_HZ = 50
-SERVO_SETTLE_S = 0.6
-# Balayage progressif (comme FCTControlleServo sur l'Arduino). 0 = saut direct.
-SERVO_MS_PER_DEG = 15
-# auto = impulsions busy-wait (fiable sur Pi 5). Autres : lgpio, thread.
-SERVO_BACKEND = "auto"
+SERVO_SPEED_MS = 40  # delay par degré (FCTControlleServo)
 
 # ---------------------------------------------------------------------------
 # Moteur pas-à-pas 28BYJ-48 (réducteur 64:1) + ULN2003

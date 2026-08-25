@@ -152,33 +152,25 @@ def cmd_scan():
 
 
 def cmd_servo(angle):
-    from servo_controller import ServoController, angle_to_pulse_us
+    from servo_controller import ServoController
 
     servo = ServoController()
     try:
-        pulse = angle_to_pulse_us(angle)
-        print(
-            f"Servo GPIO {config.GPIO_SERVO_TILT} via {servo.backend} "
-            f"→ {angle}° ({pulse:.0f} µs)"
-        )
+        print(f"Servo.write({angle})")
         servo.move_to(angle)
-        print("PWM maintenu. Le bras doit rester en position.")
-        print("Vérifie : fil orange → pin 12 (GPIO 18), rouge → 5 V, marron → GND commun.")
-        input("Entrée pour couper le PWM…")
+        input("Entrée pour arrêter…")
     finally:
         servo.cleanup(park=False)
 
 
 def cmd_servo_calibrate():
-    from servo_controller import ServoController, angle_to_pulse_us
+    from servo_controller import ServoController
 
     servo = ServoController()
     try:
-        print(f"Backend PWM : {servo.backend}")
-        print("Calibration servo — note les angles qui conviennent dans config.py")
-        for angle in (0, 25, 45, 60, 90, 120, 135, 180):
-            pulse = angle_to_pulse_us(angle)
-            print(f"\nAngle {angle}° ({pulse:.0f} µs) — Entrée pour continuer, Q pour quitter")
+        print("Calibration — note SERVO_ANGLE_UP / SERVO_ANGLE_DOWN dans config.py")
+        for angle in (0, 25, 50, 90, 130, 160, 180):
+            print(f"\nwrite({angle}) — Entrée pour continuer, Q pour quitter")
             servo.move_to(angle)
             if input().strip().lower() == "q":
                 break
@@ -191,7 +183,7 @@ def cmd_servo_sweep():
 
     servo = ServoController()
     try:
-        print(f"Test servo via {servo.backend} : monter, descendre, monter, descendre")
+        print("monter, descendre, monter, descendre")
         servo.up()
         servo.down()
         servo.up()
